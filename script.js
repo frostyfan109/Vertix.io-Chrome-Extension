@@ -73,9 +73,9 @@ chrome.storage.sync.get(['config'],function(data) {
     updateCfg("locationDrawer",state);
   });
   let settingsMenu = $(`<div><u style='margin:0'>Player information</u><div id='optionsWrapper'></div></div>`);
-  settingsMenu.css({"margin":"0","margin-left":locationDrawer[0].width()+9+"px"});
+  settingsMenu.css({"height":"300px","margin":"0","margin-left":locationDrawer[0].width()+9+"px"});
   let oW = settingsMenu.find("#optionsWrapper");
-  oW.css({"overflow-y":"scroll","margin-left":(settingsMenu.css("margin-left").slice(0,-2)/2)+"px"});
+  oW.css({"height":(settingsMenu.css("height").slice(0,-2)-hp.css("padding").slice(0,-2))+"px","overflow-y":"scroll","margin-left":(settingsMenu.css("margin-left").slice(0,-2)/2)+"px"});
   for (let option in hackCfg.settings) {
     let val = hackCfg.settings[option];
     oW.append($(`<p> ${option} = ${val}</p>`));
