@@ -1,0 +1,38 @@
+{
+  "name": "Vertix.io Hacks",
+  "version": "0.1",
+  "manifest_version": 2,
+  "description": "Hacks",
+  "browser_action":
+	{
+		"default_title":"Vertix.io Hacks",
+		"default_popup":"popup.html"
+	},
+  "content_scripts": [
+	  {
+		  "matches": [
+        "*://vertix.io/*"
+		  ],
+		  "js":["jquery-3.2.1.min.js","script.js","material-components-web.min.js"],
+      "css":["extra.css","material-components-web.min.css"]
+	  }
+  ],
+  "permissions": [
+	"webRequest",
+  "webRequestBlocking",
+  "<all_urls>",
+	"https://*/*",
+	"http://*/*",
+  "http://*.vertix.io/*",
+  "https://*.vertix.io/*",
+	"tabs",
+	"activeTab",
+	"storage"
+  ],
+  "background":{
+    "scripts":["background.js"],
+    "persistent":true
+  },
+  "web_accessible_resources":["script.js","app.js","main.css","hax.json","jquery-3.2.1.min.js","material-components-web.min.js","material-components-web.min.css"]
+
+}
