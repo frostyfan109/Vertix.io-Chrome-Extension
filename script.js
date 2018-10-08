@@ -85,7 +85,7 @@ chrome.storage.sync.get(['config'],function(data) {
     updateCfg("locationDrawer",state);
   });
   let settingsMenu = $(`<div><div id='optionsWrapper'></div></div>`);
-  settingsMenu.css({"height":"300px","margin":"0","margin-left":(locationDrawer[0].width()+9)+"px"});
+  settingsMenu.css({"height":"300px","margin":"0","margin-left":(locationDrawer[0].width())+"px"});
   let oW = settingsMenu.find("#optionsWrapper");
   //old "height":(settingsMenu.css("height").slice(0,-2)-hp.css("padding").slice(0,-2))+"px"
   let margin = 15;
@@ -113,7 +113,7 @@ chrome.storage.sync.get(['config'],function(data) {
       <div class="mdc-checkbox__mixedmark"></div>
       </div>
     </div>`);
-    oW.append($('<div class="checkBox__wrapper"></div>').append(checkBox).append($(`<p style='display:inline-block;'>${option}</p>`)).append($("<input style='border:none;border-bottom:1px solid black;outline:none;' type='text' placeholder='Hex value'></input>")));
+    oW.append($('<div class="checkBox__wrapper"></div>').append(checkBox).append($(`<p style='display:inline-block;'>${option}</p>`)).append($("<input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;' type='text' placeholder='Hex value'></input>")));
     const checkBoxControl = new mdc.checkbox.MDCCheckbox(checkBox[0]);
     if (val) {
       checkBoxControl.checked = true;
