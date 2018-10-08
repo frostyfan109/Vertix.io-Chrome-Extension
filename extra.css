@@ -20,7 +20,21 @@
 	background-color:var(--mdc-theme-secondary) !important;
 }
 .hSwitch__wrapper {
-  margin-bottom:15px;
+  margin-top:15px;
+}
+
+.hSwitch__wrapper:first-child {
+	margin-top:0 !important;
+}
+
+#optionsWrapper > * {
+	margin-top:0 !important;
+}
+
+
+#optionsWrapper {
+	display:flex;
+	flex-direction:column;
 }
 
 #startMenuWrapper {

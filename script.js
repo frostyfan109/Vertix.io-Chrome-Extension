@@ -72,13 +72,33 @@ chrome.storage.sync.get(['config'],function(data) {
   let locationDrawer = eSwitch("Location drawer",con,hackCfg.locationDrawer,function(state){
     updateCfg("locationDrawer",state);
   });
-  let settingsMenu = $(`<div><u style='margin:0'>Player information</u><div id='optionsWrapper'></div></div>`);
-  settingsMenu.css({"height":"300px","margin":"0","margin-left":locationDrawer[0].width()+9+"px"});
+  let settingsMenu = $(`<div><div id='optionsWrapper'></div></div>`);
+  settingsMenu.css({"height":"300px","margin":"0","margin-left":(locationDrawer[0].width()+9)+"px"});
   let oW = settingsMenu.find("#optionsWrapper");
-  oW.css({"height":(settingsMenu.css("height").slice(0,-2)-hp.css("padding").slice(0,-2))+"px","overflow-y":"scroll","margin-left":(settingsMenu.css("margin-left").slice(0,-2)/2)+"px"});
+  //old "height":(settingsMenu.css("height").slice(0,-2)-hp.css("padding").slice(0,-2))+"px"
+  let margin = 15;
+  margin/=2;
+  let lMargin = (settingsMenu.css("margin-left").slice(0,-2)/4)+"px";
+  lMargin = 0;
+  oW.css({"height":(settingsMenu.css("height").slice(0,-2)-margin)+"px","margin-top":margin+"px","overflow-y":"scroll","margin-left":lMargin});
   for (let option in hackCfg.settings) {
     let val = hackCfg.settings[option];
-    oW.append($(`<p> ${option} = ${val}</p>`));
+    let checkBox = $(`
+    <div class="mdc-checkbox owCB">
+    <input type="checkbox"
+           class="mdc-checkbox__native-control"/>
+    <div class="mdc-checkbox__background">
+      <svg class="mdc-checkbox__checkmark"
+           viewBox="0 0 24 24">
+        <path class="mdc-checkbox__checkmark-path"
+              fill="none"
+              d="M1.73,12.91 8.1,19.28 22.79,4.59"/>
+      </svg>
+      <div class="mdc-checkbox__mixedmark"></div>
+    </div>
+  </div>
+  <p style='display:inline-block;margin-left:-5px;'>${option}</p>`);
+  oW.append($('<div class="checkBox__wrapper"></div>').append(checkBox));
   }
   con.append(settingsMenu);
 
