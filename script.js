@@ -26,7 +26,9 @@ function eSwitch(title,parent,initialState,callback) {
 }
 
 function updateCfg(key,val) {
-  hackCfg[key] = val;
+  if (void 0 !== key && void 0 !== val) {
+    hackCfg[key] = val;
+  }
   chrome.storage.sync.set({"config":hackCfg},function() {console.log("updated config");});
   scriptTag.text = "var hackCfg="+JSON.stringify(hackCfg)+";";
   $(scriptTag).remove()
@@ -38,7 +40,7 @@ chrome.storage.sync.get(['config'],function(data) {
   if ($.isEmptyObject(data)) {
     hackCfg =
       {"aimhacks":true,"adblocker":true,"locationDrawer":true,"settings":
-        {"kd":true,"account":false,"name":false,"health":true,"dead":false,"room":false,"maxHealth":false,"id":false,"likes":false,"deaths":false,"kills":false,"totalDamage":false,"totalHealing":false,"totalGoals":false,"score":false,"x":false,"xSpeed":false,"y":false,"ySpeed":false,"angle":false,"weapons":false,"currentWeapon":false,"bulletIndex":false,"spawnProtection":false,"team":false,"speed":false,"jumpCountdown":false,"jumpDelta":false,"jumpStrength":false,"gravityStrength":false,"frameCountdown":false,"type":false,"onScreen":false,"isn":false}
+        {"kd":true,"health":true,"name":false,"dead":false,"room":false,"maxHealth":false,"id":false,"likes":false,"deaths":false,"kills":false,"totalDamage":false,"totalHealing":false,"totalGoals":false,"score":false,"x":false,"xSpeed":false,"y":false,"ySpeed":false,"angle":false,"weapons":false,"currentWeapon":false,"bulletIndex":false,"spawnProtection":false,"team":false,"speed":false,"jumpCountdown":false,"jumpDelta":false,"jumpStrength":false,"gravityStrength":false,"frameCountdown":false,"type":false,"onScreen":false,"isn":false}
       }
     chrome.storage.sync.set({"config":hackCfg});
   }
@@ -70,6 +72,16 @@ chrome.storage.sync.get(['config'],function(data) {
     window.location.reload(false);
   });
   let locationDrawer = eSwitch("Location drawer",con,hackCfg.locationDrawer,function(state){
+    if (!state) {
+      for (var i=0;i<checkBoxes.length;i++) {
+        checkBoxes[i][1].disable();
+      }
+    }
+    else {
+      for (var i=0;i<checkBoxes.length;i++) {
+        checkBoxes[i][1].enable();
+      }
+    }
     updateCfg("locationDrawer",state);
   });
   let settingsMenu = $(`<div><div id='optionsWrapper'></div></div>`);
@@ -81,6 +93,10 @@ chrome.storage.sync.get(['config'],function(data) {
   let lMargin = (settingsMenu.css("margin-left").slice(0,-2)/4)+"px";
   lMargin = 0;
   oW.css({"height":(settingsMenu.css("height").slice(0,-2)-margin)+"px","margin-top":margin+"px","overflow-y":"scroll","margin-left":lMargin});
+  con.append(settingsMenu);
+  let checkBoxes = []; //keep track of checkBox controls
+  mdc.checkbox.MDCCheckbox.prototype.disable = function() {this.indeterminate=true;this.disabled=true;}
+  mdc.checkbox.MDCCheckbox.prototype.enable = function() {this.indeterminate=false;this.disabled=false;}
   for (let option in hackCfg.settings) {
     let val = hackCfg.settings[option];
     let checkBox = $(`
@@ -95,12 +111,25 @@ chrome.storage.sync.get(['config'],function(data) {
               d="M1.73,12.91 8.1,19.28 22.79,4.59"/>
       </svg>
       <div class="mdc-checkbox__mixedmark"></div>
-    </div>
-  </div>
-  <p style='display:inline-block;margin-left:-5px;'>${option}</p>`);
-  oW.append($('<div class="checkBox__wrapper"></div>').append(checkBox));
+      </div>
+    </div>`);
+    oW.append($('<div class="checkBox__wrapper"></div>').append(checkBox).append($(`<p style='display:inline-block;'>${option}</p>`)).append($("<input style='border:none;border-bottom:1px solid black;outline:none;' type='text' placeholder='Hex value'></input>")));
+    const checkBoxControl = new mdc.checkbox.MDCCheckbox(checkBox[0]);
+    if (val) {
+      checkBoxControl.checked = true;
+    }
+    checkBox[0].addEventListener("change",function(e){
+      hackCfg.settings[option] = checkBoxControl.checked;
+      console.log(hackCfg);
+      updateCfg();
+    });
+    checkBoxes.push([checkBox,checkBoxControl]);
   }
-  con.append(settingsMenu);
+  if (!hackCfg.locationDrawer) {
+    for (var i=0;i<checkBoxes.length;i++) {
+      checkBoxes[i][1].disable();
+    }
+  }
 
 
 });

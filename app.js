@@ -2188,9 +2188,18 @@ function drawPlayerLines() {
 
     let dec = 2;
     //graph.fillText(`${enemyPlayer.name}`,0,-20);
-    graph.fillText(`${enemyPlayer.health} health`,0,20);
+    //graph.fillText(`${enemyPlayer.health} health`,0,20);
     //graph.fillStyle = prevCol;
-    graph.fillText(`${(enemyPlayer.kills/enemyPlayer.deaths).toFixed(dec) || (0).toFixed(dec)} KD`,0,60);
+    //graph.fillText(`${(enemyPlayer.kills/enemyPlayer.deaths).toFixed(dec) || (0).toFixed(dec)} KD`,0,60);
+    enemyPlayer.kd = ((enemyPlayer.kills/enemyPlayer.deaths).toFixed(dec) || (0).toFixed(dec)) + "KD";
+    let inc = -20;
+    for (let option in hackCfg.settings) {
+      if (hackCfg.settings[option]) {
+        graph.fillText(`${enemyPlayer[option]} ${option}`,0,inc);
+        inc+=40;
+      }
+    }
+
 
     graph.restore();
 

@@ -27,6 +27,10 @@
 	margin-top:0 !important;
 }
 
+.checkBox__wrapper:not(:last-child) {
+	margin-bottom:15px;
+}
+
 #optionsWrapper > * {
 	margin-top:0 !important;
 }
