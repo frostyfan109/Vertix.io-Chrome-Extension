@@ -3,11 +3,6 @@
   "version": "0.1",
   "manifest_version": 2,
   "description": "Hacks",
-  "browser_action":
-	{
-		"default_title":"Vertix.io Hacks",
-		"default_popup":"popup.html"
-	},
   "content_scripts": [
 	  {
 		  "matches": [
