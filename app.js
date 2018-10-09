@@ -2199,7 +2199,7 @@ function highlightTiles() {
     let tile = gameMap.tiles[i];
     if (tile.wall || !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale)) {
       continue;
-    }
+    } 
     if (player.x >= tile.x && player.x <= tile.x+mapTileScale && player.y >= tile.y && player.y <= tile.y+mapTileScale) {
       graph.fillStyle = "#00ff00";
       graph.strokeStyle = "#00ff00";
