@@ -449,6 +449,35 @@ function focusGame(a) {
     c.focus()
 }
 
+function alg(player) {
+  let kd = player[2].kills/player[2].deaths;
+  if (kd === Infinity || isNaN(kd) || kd === 0) {
+    kd = 1;
+  }
+  //kd /= 4; //less important;
+  kd = 1;
+  let healthScore = player[2].health;
+  let distance = player[0];
+  //let score = healthScore*distance*kd;
+  let maxHealthScore = 100;
+  let maxDistance = 1275;
+  let score = (distance/maxDistance)*(healthScore/maxHealthScore);
+  //bigger is better
+  if (isNaN(score)) {
+    console.log("NaN",healthScore,distance,kd);
+  }
+  if (score === 0) {
+    //console.log("0",healthScore,distance,kd);
+  }
+  return score;
+}
+
+function sortAlg(a,b) {
+  let play1 = alg(a);
+  let play2 = alg(b);
+  return play1-play2;
+}
+
 let locked = false;
 let coords = [];
 function gameInput(a) {
@@ -517,7 +546,8 @@ function gameInput(a) {
       //console.log(player.x,player.y)
       //console.log("Radians:",radians);
     }
-    data.sort(function(a,b){return a[0]-b[0]});
+    //data.sort(function(a,b){return a[0]-b[0]});
+    data.sort(sortAlg);
     //if (data.length!==0){console.log(data);}
     if (data.length > 0) {
       if (!locked) {
@@ -991,8 +1021,17 @@ function receivePing() {
     pingText.innerHTML = "PING " + a
 }
 var pingInterval = null;
+var rInterval = null;
 function setupSocket(a) {
     a.on("pong1", receivePing);
+    null != rInterval && clearInterval(rInterval);
+    /* //can send too frequently & also bad practice since it is seemingly random due to being time based rather than event based
+    rInterval = setInterval(function() {
+      if (!player.dead) {
+        socket.emit("r");
+      }
+    },1000);
+    */
     null != pingInterval && clearInterval(pingInterval);
     pingInterval = setInterval(function() {
         pingStart = Date.now();
@@ -1971,6 +2010,7 @@ function updateGameLoop() {
     if ('aimhacks' in hackCfg && hackCfg['aimhacks']) {
       gameInput();
     }
+
     if (clientPrediction)
         for (e = 0; e < gameObjects.length; e++)
             if ("player" == gameObjects[e].type) {
@@ -2010,7 +2050,10 @@ function updateGameLoop() {
                 //
                 // }
                 // }
-                getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo;
+                socket.emit("r");
+                if (getCurrentWeapon(player) !== null && getCurrentWeapon(player).ammo === 1) {
+                  getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo; //ensures that player will never have to reload while also protecting from getting banned by server
+                }
                 gameObjects[e].index != player.index || gameOver || (sendData = {
                     hdt: horizontalDT / 2,
                     vdt: verticalDT / 2,
@@ -2020,7 +2063,7 @@ function updateGameLoop() {
                 },
                 inputNumber++,
                 player["gravityStrength"] = 0.005,
-                socket.emit("r"),
+
 
                 //console.log(sendData),
                 socket.emit("4", sendData),
@@ -2107,6 +2150,7 @@ function doGame(a) {
     updateBullets(a);
     updateParticles(a, 1);
     drawMap(2);
+    highlightTiles();
     drawPlayerNames();
     drawEdgeShader();
     drawGameLights(a);
@@ -2118,6 +2162,53 @@ function doGame(a) {
     0 >= drawMiniMapCounter && gameStart && (fillCounter = 0,
     drawMiniMapCounter = drawMiniMapFPS,
     drawMiniMap())
+}
+
+function highlightTiles() {
+  for (var i=0;i<gameMap.tiles.length;i++) {
+    let tile = gameMap.tiles[i];
+    if (!tile.wall || !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale)) {
+      continue;
+    }
+
+    graph.beginPath();
+    graph.fillStyle = "#ff0000";
+    graph.strokeStyle = "#ff0000";
+    if (!tile.top) {
+      graph.moveTo(tile.x-startX,tile.y-startY);
+      graph.lineTo(tile.x-startX+tile.scale,tile.y-startY);
+    }
+    if (!tile.left) {
+      graph.moveTo(tile.x-startX,tile.y-startY);
+      graph.lineTo(tile.x-startX,tile.y-startY+tile.scale);
+    }
+    if (!tile.bottom) {
+      graph.moveTo(tile.x-startX,tile.y-startY+tile.scale);
+      graph.lineTo(tile.x-startX+tile.scale,tile.y-startY+tile.scale);
+    }
+    if (!tile.right) {
+      graph.moveTo(tile.x-startX+tile.scale,tile.y-startY);
+      graph.lineTo(tile.x-startX+tile.scale,tile.y-startY+tile.scale);
+    }
+    graph.closePath();
+    //graph.rect(tile.x-startX,tile.y-startY,tile.scale,tile.scale);
+
+    graph.stroke();
+  }
+  for (var i=0;i<gameMap.tiles.length;i++) {
+    let tile = gameMap.tiles[i];
+    if (tile.wall || !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale)) {
+      continue;
+    }
+    if (player.x >= tile.x && player.x <= tile.x+mapTileScale && player.y >= tile.y && player.y <= tile.y+mapTileScale) {
+      graph.fillStyle = "#00ff00";
+      graph.strokeStyle = "#00ff00";
+      graph.globalAlpha = "0.2";
+      graph.fillRect(tile.x-startX,tile.y-startY,tile.scale,tile.scale);
+      graph.stroke();
+      break;
+    }
+  }
 }
 
 function drawPlayerLines() {
@@ -2191,14 +2282,16 @@ function drawPlayerLines() {
     //graph.fillText(`${enemyPlayer.health} health`,0,20);
     //graph.fillStyle = prevCol;
     //graph.fillText(`${(enemyPlayer.kills/enemyPlayer.deaths).toFixed(dec) || (0).toFixed(dec)} KD`,0,60);
-    enemyPlayer.kd = ((enemyPlayer.kills/enemyPlayer.deaths).toFixed(dec) || (0).toFixed(dec)) + "KD";
+    enemyPlayer.KD = ((enemyPlayer.kills/enemyPlayer.deaths).toFixed(dec) || (0).toFixed(dec));
     let inc = -20;
     for (let option in hackCfg.settings) {
-      if (hackCfg.settings[option]) {
+      if (hackCfg.settings[option][0]) {
+        graph.fillStyle = hackCfg.settings[option][1];
         graph.fillText(`${enemyPlayer[option]} ${option}`,0,inc);
         inc+=40;
       }
     }
+    graph.fillText(`${alg([hyp,radians,enemyPlayer])}`,0,inc);
 
 
     graph.restore();
@@ -2894,7 +2987,7 @@ function shootBullet(a) {
             }, a)
         }
 
-
+        console.log("shot bullet");
         socket.emit("1", a.x, a.y, a.jumpY, target.f, target.d, currentTime);
         getCurrentWeapon(a).lastShot = currentTime;
         getCurrentWeapon(a).ammo--;
