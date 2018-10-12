@@ -695,12 +695,12 @@ function gameInput(a) {
     }
     }
 
-    if (undefined !== a) {
-    target.dOffset = (target.d / 4).round(1);
-    if (lastAngle != target.f || lastDist != target.d)
-        targetChanged = !0;
+    if (undefined !== a || hackCfg.hideAimbot) {
+      target.dOffset = (target.d / 4).round(1);
+      if (lastAngle != target.f || lastDist != target.d)
+          targetChanged = !0;
 
-    lastTarget = target.f
+      lastTarget = target.f
     }
 
 }
@@ -2107,6 +2107,14 @@ $(window).blur(function() {
 });
 var sendData = null
   , fpsUpdateUICounter = 0;
+
+let rad = 0;
+let degToRad = function(deg) {
+  return deg * (Math.PI/180);
+}
+let radToDeg = function(rad) {
+  return rad * (180/Math.PI);
+}
 function updateGameLoop() {
     delta = currentTime - oldTime;
     fpsUpdateUICounter--;
@@ -2133,9 +2141,17 @@ function updateGameLoop() {
     0 != e && (b /= e,
     d /= e);
 
-    // if ('aimhacks' in hackCfg && hackCfg['aimhacks']) {
-    //   gameInput();
-    // }
+
+    if (hackCfg.spins !== false) {
+      let radPF = degToRad(hackCfg.spins*(360/currentFPS));
+      if(!isNaN(radPF)){rad+=radPF}
+      if (radToDeg(rad) > 360) {
+        rad = degToRad(radToDeg(rad)-360);
+      }
+      //console.log(radToDeg(rad));
+      target.f = rad;
+    }
+
     gameInput();
 
     if (clientPrediction)
@@ -2266,7 +2282,10 @@ var drawMiniMapFPS = 4
   , drawMiniMapCounter = 0;
 function doGame(a) {
     if (hackCfg.infiniteAmmo && getCurrentWeapon(player) !== null && reloadEventSafe){socket.emit("r")};
-    updateScreenShake(a);
+    //updateScreenShake(a);
+    if (hackCfg.spins !== false) {
+      target.dOffset = 0;
+    }
     null != target && (startX = player.x - maxScreenWidth / 2 + -screenSkX + target.dOffset * mathCOS(target.f + mathPI),
     startY = player.y - 20 - maxScreenHeight / 2 + -screenSkY + target.dOffset * mathSIN(target.f + mathPI),
     1 < fillCounter && socket && socket.emit("kil"));

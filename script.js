@@ -35,6 +35,7 @@ function eSwitch(title,parent,initialState,callback) {
 }
 
 function eToggle(parent,initialState,callback) {
+  parent.parent().attr("et",true);
   const toggleE = $(`
   <i class="mdc-icon-toggle material-icons" role="button" aria-pressed="${initialState}"
     aria-label="" tabindex="0"
@@ -60,11 +61,14 @@ function updateCfg(key,val) {
   $("head").append(scriptTag);
 }
 let hackCfg = {};
+
+
+
 function loadPanel(){
 chrome.storage.sync.get(['config'],function(data) {
   if ($.isEmptyObject(data)) {
     hackCfg =
-      {"aimhacks":true,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":false},"locationDrawer":true,"settings":
+      {"aimhacks":true,"hideAimbot":true,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":false},"locationDrawer":true,"settings":
         {"KD":[true,"#000000"],"health":[true,"#000000"],"name":[false,"#000000"],"dead":[false,"#000000"],"room":[false,"#000000"],"maxHealth":[false,"#000000"],"id":[false,"#000000"],"likes":[false,"#000000"],"deaths":[false,"#000000"],"kills":[false,"#000000"],"totalDamage":[false,"#000000"],"totalHealing":[false,"#000000"],"totalGoals":[false,"#000000"],"score":[false,"#000000"],"x":[false,"#000000"],"xSpeed":[false,"#000000"],"y":[false,"#000000"],"ySpeed":[false,"#000000"],"angle":[false,"#000000"],"weapons":[false,"#000000"],"currentWeapon":[false,"#000000"],"bulletIndex":[false,"#000000"],"spawnProtection":[false,"#000000"],"team":[false,"#000000"],"speed":[false,"#000000"],"jumpCountdown":[false,"#000000"],"jumpDelta":[false,"#000000"],"jumpStrength":[false,"#000000"],"gravityStrength":[false,"#000000"],"frameCountdown":[false,"#000000"],"type":[false,"#000000"],"onScreen":[false,"#000000"],"isn":[false,"#000000"]}
       }
     chrome.storage.sync.set({"config":hackCfg});
@@ -91,15 +95,35 @@ chrome.storage.sync.get(['config'],function(data) {
   let con = $('<div id="hackWrapper"></div>');
   hp.append(con);
   hp.insertBefore("#messageWrap");
-  let aimHacks = eSwitch("Aimhacks",con,hackCfg.aimhacks,function(state){
+  let aimHacks = eSwitch("Aimbot",con,hackCfg.aimhacks,function(state){
     updateCfg("aimhacks",state)
   });
-
-  let adBlocker = eSwitch("Adblocker",con,hackCfg.adblocker,function(state){
-    updateCfg("adblocker",state);
-    $("#adWrapper").toggleClass("noDisp",state);
-    //window.location.reload(false);
+  let hideAimhacks = eSwitch("Hide aimbot",con,hackCfg.hideAimbot,function(state){
+    updateCfg("hideAimbot",state)
   });
+
+  let spins = eSwitch("Spins",con,hackCfg.spins,function(state) {
+    updateCfg("spins",state ? hackCfg.spinsOld : false);
+    if (state) {
+      $("#spinInp").removeAttr("disabled");
+    }
+    else {
+      $("#spinInp").attr("disabled","disabled");
+    }
+  });
+  let spinInp = $(`
+  <input id='spinInp' style='user-select:none;width:40%;transform:scale(.90);margin-left:10px;border:none;border-bottom:1px solid black;outline:none;'
+  type='number' min='1' value='${hackCfg.spins ? hackCfg.spins : hackCfg.spinsOld}'></input>`);
+  spinInp.on("input",function() {
+    updateCfg("spins",parseInt($(this).val()));
+    updateCfg("spinsOld",parseInt($(this).val()));
+  })
+  spins[2].append(spinInp);
+  if (!hackCfg.spins) {
+    spinInp.attr("disabled","disabled");
+  }
+
+
   let locationDrawer = eSwitch("Location Drawer",con,hackCfg.locationDrawer,function(state){
     if (!state) {
       for (var i=0;i<checkBoxes.length;i++) {
@@ -165,7 +189,7 @@ chrome.storage.sync.get(['config'],function(data) {
     if (!validCol) {
       inp.css("color","#000000");
     }
-    oW.append($('<div class="checkBox__wrapper"></div>').append(checkBox).append($(`<p style='display:inline-block;'>${option}</p>`)).append(inp));
+    oW.append($('<div class="checkBox__wrapper"></div>').append(checkBox).append($(`<p style='margin:0;padding-top:11px;padding-bottom:11px;margin-left:-2.5px;display:inline-block;'>${option}</p>`)).append(inp));
     const checkBoxControl = new mdc.checkbox.MDCCheckbox(checkBox[0]);
     if (val[0]) {
       checkBoxControl.checked = true;
@@ -265,18 +289,31 @@ chrome.storage.sync.get(['config'],function(data) {
     if (state) {
       toggle.removeClass("maximize minimize");
       toggle.addClass("minimize");
-      $("#reloadWrapper").slideUp(450);
+      $("#reloadWrapper").next().animate({"margin-top":"15px"},450);
+      $("#reloadWrapper").slideUp(450,function() {;
+      });
     }
     else {
       toggle.removeClass("minimize maximize");
       toggle.addClass("maximize");
-      $("#reloadWrapper").slideDown(750);
+      $("#reloadWrapper").next().animate({"margin-top":"7.5px"},750);
+      $("#reloadWrapper").slideDown(750,function() {
+      });
     }
     hackCfg.expand["ammo"] = state;
     updateCfg();
   });
+
+  let adBlocker = eSwitch("Adblocker",con,hackCfg.adblocker,function(state){
+    updateCfg("adblocker",state);
+    $("#adWrapper").toggleClass("noDisp",state);
+  });
+
   if (hackCfg.expand["ammo"]) {
     $("#reloadWrapper").slideUp(0);
+  }
+  else {
+    $("#reloadWrapper").next().css("margin-top","7.5px");
   }
   if (!hackCfg.infiniteAmmo) {
     for (let radioElem of document.querySelectorAll(".reload")) {

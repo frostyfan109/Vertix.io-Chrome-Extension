@@ -35,6 +35,10 @@
 	margin-bottom:0 !important;
 }
 
+.hSwitch__wrapper[et="true"] {
+	margin-top:10px !important;
+}
+
 .mdc-icon-toggle {
 	top:5px;
 	left:2.5px;
@@ -104,9 +108,13 @@
 	margin-top:0px !important;
 }
 
-#reloadWrapper + * {
-	margin-top:7.5px !important;
-}
+/* #reloadWrapper:not([style*="display: none;"]) + * {
+	margin-top:7.5px;
+} */
+
+/* #reloadWrapper[style=""] + * {
+	margin-top:7.5px;
+} */
 
 #hackWrapper > * {
   margin-top:15px;
