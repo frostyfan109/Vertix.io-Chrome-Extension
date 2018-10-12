@@ -1,3 +1,4 @@
+$("head").append('<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">');
 var scriptTag = document.createElement("script");
 scriptTag.text = "var hackCfg={};";
 $("head")[0].appendChild(scriptTag);
@@ -15,13 +16,14 @@ function eSwitch(title,parent,initialState,callback) {
     <div class="hSwitch mdc-switch__track"></div>
     <div class="mdc-switch__thumb-underlay">
       <div class="mdc-switch__thumb">
-          <input type="checkbox" id="${title}" class="mdc-switch__native-control" role="switch" ${initialState ? "checked" : ""}>
+          <input type="checkbox" class="mdc-switch__native-control" role="switch" ${initialState ? "checked" : ""}>
       </div>
     </div>
   </div>
-  <label style='margin-left:5px;' for="${title}">${title}</label>
+  <label style='margin-left:5px;'>${title}</label>
   `);
-  parent.append($('<div class="hSwitch__wrapper"></div>').append(switchE));
+  let switchWrapper = $('<div class="hSwitch__wrapper"></div>');
+  parent.append(switchWrapper.append(switchE));
   const switchControl = new mdc.switchControl.MDCSwitch(switchE[0]);
   switchControl.initialSyncWithDOM();
   switchE[0].addEventListener("change",function(e){
@@ -29,7 +31,23 @@ function eSwitch(title,parent,initialState,callback) {
     callback(switchControl.checked);
   });
   //console.log(switchControl);
-  return [switchE,switchControl];
+  return [switchE,switchControl,switchWrapper];
+}
+
+function eToggle(parent,initialState,callback) {
+  const toggleE = $(`
+  <i class="mdc-icon-toggle material-icons" role="button" aria-pressed="${initialState}"
+    aria-label="" tabindex="0"
+    data-toggle-on='{"content": "add_circle"}'
+    data-toggle-off='{"content": "remove_circle"}'>
+    remove_circle
+  </i>`);
+  parent.after(toggleE)
+  mdc.iconToggle.MDCIconToggle.attachTo(toggleE[0]);
+  toggleE.on("MDCIconToggle:change",({detail}) => {
+    callback(toggleE,detail.isOn);
+  });
+  return toggleE;
 }
 
 function updateCfg(key,val) {
@@ -46,7 +64,7 @@ function loadPanel(){
 chrome.storage.sync.get(['config'],function(data) {
   if ($.isEmptyObject(data)) {
     hackCfg =
-      {"aimhacks":true,"adblocker":true,"locationDrawer":true,"settings":
+      {"aimhacks":true,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":false},"locationDrawer":true,"settings":
         {"KD":[true,"#000000"],"health":[true,"#000000"],"name":[false,"#000000"],"dead":[false,"#000000"],"room":[false,"#000000"],"maxHealth":[false,"#000000"],"id":[false,"#000000"],"likes":[false,"#000000"],"deaths":[false,"#000000"],"kills":[false,"#000000"],"totalDamage":[false,"#000000"],"totalHealing":[false,"#000000"],"totalGoals":[false,"#000000"],"score":[false,"#000000"],"x":[false,"#000000"],"xSpeed":[false,"#000000"],"y":[false,"#000000"],"ySpeed":[false,"#000000"],"angle":[false,"#000000"],"weapons":[false,"#000000"],"currentWeapon":[false,"#000000"],"bulletIndex":[false,"#000000"],"spawnProtection":[false,"#000000"],"team":[false,"#000000"],"speed":[false,"#000000"],"jumpCountdown":[false,"#000000"],"jumpDelta":[false,"#000000"],"jumpStrength":[false,"#000000"],"gravityStrength":[false,"#000000"],"frameCountdown":[false,"#000000"],"type":[false,"#000000"],"onScreen":[false,"#000000"],"isn":[false,"#000000"]}
       }
     chrome.storage.sync.set({"config":hackCfg});
@@ -76,12 +94,13 @@ chrome.storage.sync.get(['config'],function(data) {
   let aimHacks = eSwitch("Aimhacks",con,hackCfg.aimhacks,function(state){
     updateCfg("aimhacks",state)
   });
+
   let adBlocker = eSwitch("Adblocker",con,hackCfg.adblocker,function(state){
     updateCfg("adblocker",state);
     $("#adWrapper").toggleClass("noDisp",state);
     //window.location.reload(false);
   });
-  let locationDrawer = eSwitch("Location drawer",con,hackCfg.locationDrawer,function(state){
+  let locationDrawer = eSwitch("Location Drawer",con,hackCfg.locationDrawer,function(state){
     if (!state) {
       for (var i=0;i<checkBoxes.length;i++) {
         checkBoxes[i][1].disable();
@@ -94,8 +113,24 @@ chrome.storage.sync.get(['config'],function(data) {
     }
     updateCfg("locationDrawer",state);
   });
-  let settingsMenu = $(`<div><div id='optionsWrapper'></div></div>`);
-  settingsMenu.css({"height":"300px","margin":"0","margin-left":(locationDrawer[0].width())+"px"});
+  eToggle(locationDrawer[0].slice(-1),hackCfg.expand["locationDrawer"],function(toggle,state) {
+    if (state) {
+      toggle.removeClass("maximize minimize");
+      toggle.addClass("minimize");
+      $("#optionsWrapperContainer").slideUp(450);
+    }
+    else {
+      toggle.removeClass("minimize maximize");
+      toggle.addClass("maximize");
+      $("#optionsWrapperContainer").slideDown(750);
+    }
+    hackCfg.expand["locationDrawer"] = state;
+    updateCfg();
+  });
+
+  //locationDrawer[0].slice(-1).after(eToggle);
+  let settingsMenu = $(`<div id='optionsWrapperContainer'><div id='optionsWrapper'></div></div>`);
+  settingsMenu.css({"height":"270px","margin":"0","margin-left":(locationDrawer[0].width())+"px"});
   let oW = settingsMenu.find("#optionsWrapper");
   //old "height":(settingsMenu.css("height").slice(0,-2)-hp.css("padding").slice(0,-2))+"px"
   let margin = 15;
@@ -154,6 +189,104 @@ chrome.storage.sync.get(['config'],function(data) {
   if (!hackCfg.locationDrawer) {
     for (var i=0;i<checkBoxes.length;i++) {
       checkBoxes[i][1].disable();
+    }
+  }
+  if (hackCfg.expand["locationDrawer"]) {
+    $("#optionsWrapperContainer").slideUp(0);
+  }
+
+
+  let ammoSwitch = eSwitch("Infinite Ammo",con,!!hackCfg.infiniteAmmo,function(state){
+    let radioState = 0;
+    if (!state) {
+      for (let radioElem of document.querySelectorAll(".reload")) {
+        $(radioElem).addClass("mdc-radio--disabled");
+        $(radioElem).find(".mdc-radio__native-control").attr("disabled","disabled")
+      }
+    }
+    else {
+      for (let radioElem of document.querySelectorAll(".reload")) {
+        $(radioElem).removeClass("mdc-radio--disabled");
+        $(radioElem).find(".mdc-radio__native-control").removeAttr("disabled");
+        if ($(radioElem).find(".mdc-radio__native-control")[0].checked) {
+          radioState = parseInt($(radioElem).find(".mdc-radio__native-control").attr("cfgVal"))
+        }
+      }
+    }
+    if (state === 0 && state !== radioState) {
+      console.log(state,radioState);
+    }
+    updateCfg("infiniteAmmo",radioState);
+  });
+  let reload = $(`
+  <div id="reloadWrapper">
+  <div class="mdc-form-field">
+
+  <div class='radioWrapper'>
+  <label class='radio-label' for='1Radio'>Safe</label>
+  <div class="mdc-radio reload">
+    <input class="mdc-radio__native-control" cfgVal='1' id='1Radio' name='radio' type="radio">
+    <div class="mdc-radio__background">
+      <div class="mdc-radio__outer-circle"></div>
+      <div class="mdc-radio__inner-circle"></div>
+    </div>
+  </div>
+  </div>
+  <div class="info">Undetectable by server but unreliable on poor connections</div>
+
+  <div class='radioWrapper'>
+  <label class='radio-label' for='2Radio'>Risky</label>
+  <div class="mdc-radio reload">
+    <input class="mdc-radio__native-control" cfgVal='2' id='2Radio' name='radio' type="radio">
+    <div class="mdc-radio__background">
+      <div class="mdc-radio__outer-circle"></div>
+      <div class="mdc-radio__inner-circle"></div>
+    </div>
+  </div>
+  </div>
+  <div class="info">Prolonged use of certain weapons can result in being kicked</div>
+
+  </div></div>`);
+  con.append(reload);
+  $(`#${hackCfg.infiniteAmmo}Radio`).attr("checked","checked");
+  //const formField = new mdc.formField.MDCFormField(document.querySelector('.mdc-form-field'));
+  for (let radioElem of document.querySelectorAll(".reload")){
+    //let radio = new mdc.radio.MDCRadio(radioElem);
+    radioElem.addEventListener("change",function(e) {
+      hackCfg.infiniteAmmoOld = parseInt($(radioElem).find(".mdc-radio__native-control").attr("cfgVal"));
+      updateCfg("infiniteAmmo",parseInt($(radioElem).find(".mdc-radio__native-control").attr("cfgVal")));
+      //console.log($(`label[for='${$(radioElem).find(".mdc-radio__native-control")[0].id}']`).text(),radio.checked);
+    });
+    //formField.input = radio;
+  }
+
+
+  eToggle(ammoSwitch[0].slice(-1),hackCfg.expand["ammo"],function(toggle,state) {
+    if (state) {
+      toggle.removeClass("maximize minimize");
+      toggle.addClass("minimize");
+      $("#reloadWrapper").slideUp(450);
+    }
+    else {
+      toggle.removeClass("minimize maximize");
+      toggle.addClass("maximize");
+      $("#reloadWrapper").slideDown(750);
+    }
+    hackCfg.expand["ammo"] = state;
+    updateCfg();
+  });
+  if (hackCfg.expand["ammo"]) {
+    $("#reloadWrapper").slideUp(0);
+  }
+  if (!hackCfg.infiniteAmmo) {
+    for (let radioElem of document.querySelectorAll(".reload")) {
+      $(radioElem).addClass("mdc-radio--disabled");
+      $(radioElem).find(".mdc-radio__native-control").attr("disabled","disabled");
+    }
+  }
+  for (let radioElem of document.querySelectorAll(".reload")) {
+    if (hackCfg.infiniteAmmoOld === parseInt($(radioElem).find(".mdc-radio__native-control").attr("cfgVal"))) {
+      $(radioElem).find(".mdc-radio__native-control").attr("checked","checked");
     }
   }
 

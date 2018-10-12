@@ -2,6 +2,8 @@ var playerName, playerClassIndex, playerType, healthBarWidth, playerNameInput = 
 
 //$("head").append("<link rel='stylesheet' href='https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css'>");
 
+let reloadEventSafe = true;
+
 if (void 0 === hackCfg) {
   var hackCfg = {};
 }
@@ -273,7 +275,8 @@ window.onload = function() {
                     srvMap: customMap,
                     srvClnWr: l,
                     srvModes: m
-                })
+                });
+                reloadEventSafe = false;
             }
             ;
             lobbyButton.onclick = function() {
@@ -473,13 +476,127 @@ function alg(player) {
 }
 
 function sortAlg(a,b) {
+  let p1Col = a[3];
+  let p2Col = b[3];
+  if (p1Col ^ p2Col) {
+    return p1Col-p2Col;
+  }
   let play1 = alg(a);
   let play2 = alg(b);
   return play1-play2;
 }
 
+function Point(x, y) {
+    this.x = x;
+    this.y = y;
+}
+
+function Rectangle(left, top, width, height) {
+    this.left = left;
+    this.top = top;
+    this.width = width;
+    this.height = height;
+}
+
+Rectangle.prototype.intersectsLine = function(p1, p2) {
+    var minX = p1.x;
+    var maxX = p2.x;
+
+    if (p1.x > p2.x) {
+        minX = p2.x;
+        maxX = p1.x;
+    }
+
+    if (maxX > this.left + this.width)
+        maxX = this.left + this.width;
+
+    if (minX < this.left)
+        minX = this.left;
+
+    if (minX > maxX)
+        return false;
+
+    var minY = p1.y;
+    var maxY = p2.y;
+
+    var dx = p2.x - p1.x;
+
+    if (Math.abs(dx) > 0.0000001) {
+        var a = (p2.y - p1.y) / dx;
+        var b = p1.y - a * p1.x;
+        minY = a * minX + b;
+        maxY = a * maxX + b;
+    }
+
+    if (minY > maxY) {
+        var tmp = maxY;
+        maxY = minY;
+        minY = tmp;
+    }
+
+    if (maxY > this.top + this.height)
+        maxY = this.top + this.height;
+
+    if (minY < this.top)
+        minY = this.top;
+
+    if (minY > maxY)
+        return false;
+
+    return true;
+}
+
+let testing = [[],[],[]];
+function testCol(data) {
+  testing = [[],[],[]];
+  for (var i=0;i<gameMap.tiles.length;i++) {
+    let tile = gameMap.tiles[i];
+    if (!tile.wall || !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale)) {
+      continue;
+    }
+    let hyp = data[0];
+    let radians = data[1];
+    let myPlayer = data[2];
+    let enemyPlayerCentroid = data[3];
+    //let enemyPlayer = data[3];
+    // let x = myPlayer.x;
+    // let y = myPlayer.y;
+    // let x2 = enemyPlayer.x;
+    // let y2 = enemyPlayer.y;
+
+
+    let a = myPlayer;
+    var d = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]
+      , d = (target.f + mathPI + d).round(2)
+      , e = getCurrentWeapon(a).holdDist + getCurrentWeapon(a).bDist
+      , f = mathRound(a.x + e * mathCOS(d))
+      , e = mathRound(a.y - getCurrentWeapon(a).yOffset - a.jumpY + e * mathSIN(d));
+    let x = f;
+    let y = e;
+    let x2 = enemyPlayerCentroid.x;
+    let y2 = enemyPlayerCentroid.y;
+
+    testing[0].push([tile.x-startX,tile.y-startY,tile.scale,tile.scale-data[2].height,tile]);
+    testing[1].push([x,y,x2,y2]);
+    // graph.fillStyle = "#0000ff";
+    // graph.strokeStyle = "#0000ff";
+    // graph.fillRect(tile.x-startX,tile.y-startY,tile.scale,tile.scale-player.height);
+    //console.log(tile.x-startX,tile.y-startY,tile.scale,tile.scale-player.height);
+    // graph.stroke();
+    var rect = new Rectangle(tile.x,tile.y,tile.scale,tile.scale-data[2].height);
+    line = {p1:new Point(x,y),p2:new Point(x2,y2)};
+    testing[2].push([line,myPlayer]);
+    let intersects = rect.intersectsLine(line.p1, line.p2);
+    if (intersects) {
+      return true;
+    }
+  }
+  return false;
+}
+
 let locked = false;
 let coords = [];
+let mostRecentTarget = null;
 function gameInput(a) {
     if (undefined !== a) {
     a.preventDefault();
@@ -509,8 +626,8 @@ function gameInput(a) {
         continue;
       }
       //distance formula
-      let myPlayerCentroid = {"x":myPlayer.x+(myPlayer.width/2),"y":myPlayer.y+(myPlayer.height/2)};
-      let playerCentroid = {"x":player.x+(player.width/2),"y":player.y+(player.height/2)};
+      let myPlayerCentroid = {"x":myPlayer.x,"y":myPlayer.y-(myPlayer.height/2)};
+      let playerCentroid = {"x":player.x,"y":player.y-(player.height/2)};
       //let slope = [(myPlayer.y-player.y),(myPlayer.x-player.x)];
       let slope;
       let x;
@@ -540,7 +657,8 @@ function gameInput(a) {
       //console.log(radians);
       //target.f = radians;
       if (player.onScreen) {
-        data.push([hyp,radians,player])
+        let inf = [hyp,radians,player,testCol([hyp,radians,myPlayer,playerCentroid])];
+        data.push(inf);
         coords.push([player,radians]);
       }
       //console.log(player.x,player.y)
@@ -549,25 +667,31 @@ function gameInput(a) {
     //data.sort(function(a,b){return a[0]-b[0]});
     data.sort(sortAlg);
     //if (data.length!==0){console.log(data);}
-    if (data.length > 0) {
-      if (!locked) {
-        deactiveAllAnimTexts();
-        startBigAnimText("Locked onto "+data[0][2].name, "", Infinity, !0, "#ff0000", "#ffffff", !1, 2,true);
+    if ('aimhacks' in hackCfg && hackCfg['aimhacks']) {
+      if (data.length > 0) {
+        if (!locked || mostRecentTarget[0] !== data[0][2] || mostRecentTarget[1] !== data[0][3]) {
+          deactiveAllAnimTexts();
+          startBigAnimText("Locked onto "+data[0][2].name,data[0][3] ? "No shot" : "Clear shot", Infinity, !0, "#d3d3d3", data[0][3] ? "#ff0000" : "#00ff00", !1, 2,true);
+        }
+        locked = true;
+        target.f=data[0][1];
+        mostRecentTarget = [data[0][2],data[0][3]];
+        //console.log("setting cursor");
+        //console.log(data[0][2].x,data[0][2].y);
+        //console.log(data[0][2].name,data[0][2].onScreen);
+        //console.log(Date.now());
       }
-      locked = true;
-      target.f=data[0][1];
-      //console.log("setting cursor");
-      //console.log(data[0][2].x,data[0][2].y);
-      //console.log(data[0][2].name,data[0][2].onScreen);
-      //console.log(Date.now());
-    }
-    else {
-      if (locked) {
-        deactiveAllAnimTexts();
-        startBigAnimText("No enemy found", "", Infinity, !0, "#202020", "#ffffff", !1, 2,true);
+      else {
+        if (locked || (mostRecentTarget === null && reloadEventSafe && getCurrentWeapon(player) !== null)) {
+          if (mostRecentTarget === null) {
+            mostRecentTarget = false;
+          }
+          deactiveAllAnimTexts();
+          startBigAnimText("No enemy found", "", Infinity, !0, "#202020", "#ffffff", !1, 2,true);
+        }
+        locked = false;
+        //console.log("not setting cursor");
       }
-      locked = false;
-      //console.log("not setting cursor");
     }
     }
 
@@ -1076,7 +1200,8 @@ function setupSocket(a) {
     });
     a.on("cSrvRes", function(a, d) {
         d ? (serverKeyTxt.innerHTML = a,
-        serverCreateMessage.innerHTML = "Success. Created server with IP: " + a) : serverCreateMessage.innerHTML = a
+        serverCreateMessage.innerHTML = "Success. Created server with IP: " + a) : serverCreateMessage.innerHTML = a;
+        reloadEventSafe = true;
     });
     a.on("regRes", function(a, d) {
         d || (loginMessage.style.display = "block");
@@ -1259,6 +1384,7 @@ function setupSocket(a) {
         var b = findUserByIndex(player.index);
         null != b && (0 == a && 1 < b.weapons[a].maxAmmo && showNotification("Ammo Full"),
         b.weapons[a].reloadTime = 0,
+        b.weapons[a].shotsFired = 0,
         b.weapons[a].ammo = b.weapons[a].maxAmmo,
         setCooldownAnimation(a, b.weapons[a].reloadTime, !1),
         updateUiStats(b))
@@ -2007,9 +2133,10 @@ function updateGameLoop() {
     0 != e && (b /= e,
     d /= e);
 
-    if ('aimhacks' in hackCfg && hackCfg['aimhacks']) {
-      gameInput();
-    }
+    // if ('aimhacks' in hackCfg && hackCfg['aimhacks']) {
+    //   gameInput();
+    // }
+    gameInput();
 
     if (clientPrediction)
         for (e = 0; e < gameObjects.length; e++)
@@ -2050,9 +2177,10 @@ function updateGameLoop() {
                 //
                 // }
                 // }
-                socket.emit("r");
-                if (getCurrentWeapon(player) !== null && getCurrentWeapon(player).ammo === 1) {
-                  getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo; //ensures that player will never have to reload while also protecting from getting banned by server
+                if (hackCfg.infiniteAmmo === 2 && getCurrentWeapon(player) !== null && getCurrentWeapon(player).ammo === 1) {
+                  if (getCurrentWeapon(player).shotsFired !== undefined && getCurrentWeapon(player).maxAmmo === getCurrentWeapon.shotsFired)
+                  getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo;
+                  //getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo; //ensures that player will never have to reload while also partially from getting banned by server
                 }
                 gameObjects[e].index != player.index || gameOver || (sendData = {
                     hdt: horizontalDT / 2,
@@ -2137,6 +2265,7 @@ function drawOverlay(a, b, d) {
 var drawMiniMapFPS = 4
   , drawMiniMapCounter = 0;
 function doGame(a) {
+    if (hackCfg.infiniteAmmo && getCurrentWeapon(player) !== null && reloadEventSafe){socket.emit("r")};
     updateScreenShake(a);
     null != target && (startX = player.x - maxScreenWidth / 2 + -screenSkX + target.dOffset * mathCOS(target.f + mathPI),
     startY = player.y - 20 - maxScreenHeight / 2 + -screenSkY + target.dOffset * mathSIN(target.f + mathPI),
@@ -2174,21 +2303,22 @@ function highlightTiles() {
     graph.beginPath();
     graph.fillStyle = "#ff0000";
     graph.strokeStyle = "#ff0000";
+    let bottomY = tile.y-player.height;
     if (!tile.top) {
       graph.moveTo(tile.x-startX,tile.y-startY);
       graph.lineTo(tile.x-startX+tile.scale,tile.y-startY);
     }
     if (!tile.left) {
       graph.moveTo(tile.x-startX,tile.y-startY);
-      graph.lineTo(tile.x-startX,tile.y-startY+tile.scale);
+      graph.lineTo(tile.x-startX,(!tile.bottom ? bottomY : tile.y)-startY+tile.scale);
     }
     if (!tile.bottom) {
-      graph.moveTo(tile.x-startX,tile.y-startY+tile.scale);
-      graph.lineTo(tile.x-startX+tile.scale,tile.y-startY+tile.scale);
+      graph.moveTo(tile.x-startX,bottomY-startY+tile.scale);
+      graph.lineTo(tile.x-startX+tile.scale,bottomY-startY+tile.scale);
     }
     if (!tile.right) {
       graph.moveTo(tile.x-startX+tile.scale,tile.y-startY);
-      graph.lineTo(tile.x-startX+tile.scale,tile.y-startY+tile.scale);
+      graph.lineTo(tile.x-startX+tile.scale,(!tile.bottom ? bottomY : tile.y)-startY+tile.scale);
     }
     graph.closePath();
     //graph.rect(tile.x-startX,tile.y-startY,tile.scale,tile.scale);
@@ -2199,7 +2329,7 @@ function highlightTiles() {
     let tile = gameMap.tiles[i];
     if (tile.wall || !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale)) {
       continue;
-    } 
+    }
     if (player.x >= tile.x && player.x <= tile.x+mapTileScale && player.y >= tile.y && player.y <= tile.y+mapTileScale) {
       graph.fillStyle = "#00ff00";
       graph.strokeStyle = "#00ff00";
@@ -2208,6 +2338,60 @@ function highlightTiles() {
       graph.stroke();
       break;
     }
+  }
+  testing = [[],[],[]];
+  for (var i=0;i<testing[0].length;i++) {
+    let data = testing[0][i];
+    graph.fillStyle = "#0000ff";
+    graph.strokeStyle = "#0000ff";
+    graph.globalAlpha = "1.0";
+    //graph.fillRect(data[0],data[1],data[2],data[3]);
+    graph.beginPath()
+    let tile = data[4];
+    let bottomY = tile.y-player.height;
+    if (!tile.top) {
+      graph.moveTo(tile.x-startX,tile.y-startY);
+      graph.lineTo(tile.x-startX+tile.scale,tile.y-startY);
+    }
+    if (!tile.left) {
+      graph.moveTo(tile.x-startX,tile.y-startY);
+      graph.lineTo(tile.x-startX,(!tile.bottom ? bottomY : tile.y)-startY+tile.scale);
+    }
+    if (!tile.bottom) {
+      graph.moveTo(tile.x-startX,bottomY-startY+tile.scale);
+      graph.lineTo(tile.x-startX+tile.scale,bottomY-startY+tile.scale);
+    }
+    if (!tile.right) {
+      graph.moveTo(tile.x-startX+tile.scale,tile.y-startY);
+      graph.lineTo(tile.x-startX+tile.scale,(!tile.bottom ? bottomY : tile.y)-startY+tile.scale);
+    }
+    graph.closePath();
+    graph.stroke();
+  }
+  for (var i=0;i<testing[1].length;i++) {
+    let data = testing[1][i];
+    graph.fillStyle = "#00ffff";
+    graph.strokeStyle = "#00ffff";
+    graph.globalAlpha = "1.0";
+    //graph.arc(data[0],data[1],5,0,2*Math.PI);
+    //graph.arc(data[2],data[3],5,0,2*Math.PI);
+    //graph.stroke();
+  }
+  for (var i=0;i<testing[2].length;i++) {
+    let points = testing[2][i][0];
+    graph.beginPath();
+    let a = testing[2][i][1];
+    var d = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]
+      , d = (target.f + mathPI + d).round(2)
+      , e = getCurrentWeapon(a).holdDist + getCurrentWeapon(a).bDist
+      , f = mathRound(a.x + e * mathCOS(d))
+      , e = mathRound(a.y - getCurrentWeapon(a).yOffset - a.jumpY + e * mathSIN(d));
+
+    //graph.moveTo(points.p1.x-startX,points.p1.y-startY);
+    graph.moveTo(f-startX,e-startY);
+    graph.lineTo(points.p2.x-startX,points.p2.y-startY);
+    graph.closePath();
+    graph.stroke();
   }
 }
 
@@ -2227,8 +2411,8 @@ function drawPlayerLines() {
     //let data = coords[i];
     let enemyPlayer = coords[i][0];
     let radians = coords[i][1];
-    let myPlayerCentroid = {"x":player.x+(player.width/2),"y":player.y+(player.height/2)};
-    let playerCentroid = {"x":enemyPlayer.x+(enemyPlayer.width/2),"y":enemyPlayer.y+(enemyPlayer.height/2)};
+    let myPlayerCentroid = {"x":player.x,"y":player.y-(player.height/2)};
+    let playerCentroid = {"x":enemyPlayer.x,"y":enemyPlayer.y-(enemyPlayer.height/2)};
     //let slope = [(myPlayer.y-player.y),(myPlayer.x-player.x)];
     let slope = [(myPlayerCentroid.y-playerCentroid.y),(myPlayerCentroid.x-playerCentroid.x)];
     let x = slope[1];
@@ -2923,11 +3107,14 @@ function updateWeaponUI(a, b) {
     updateUiStats(a)
 }
 function setCooldownAnimation(a, b, d) {
+  try {
     tmpDiv = document.getElementById("actionCooldown" + a);
     d ? (tmpDiv.style.height = "100%",
     $("#actionCooldown" + a).animate({
         height: "0%"
     }, b)) : tmpDiv.style.height = "0%"
+  }
+  catch (e) {}
 }
 function shootNextBullet(a, b) {
     var d = getNextBullet();
@@ -2986,11 +3173,13 @@ function shootBullet(a) {
                 si: -1
             }, a)
         }
-
-        console.log("shot bullet");
         socket.emit("1", a.x, a.y, a.jumpY, target.f, target.d, currentTime);
         getCurrentWeapon(a).lastShot = currentTime;
         getCurrentWeapon(a).ammo--;
+        if (void 0 === getCurrentWeapon(a).shotsFired) {
+          getCurrentWeapon(a).shotsFired = 0;
+        }
+        getCurrentWeapon(a).shotsFired++;
         0 >= getCurrentWeapon(a).ammo && playerReload(a, !0);
         updateUiStats(a)
     }
@@ -4051,7 +4240,7 @@ function startAnimText(a, b, d, e, f, h, g, l, m, k, p, n, r, u, v, t, w) {
     q.cachedImage = renderShadedAnimText(q.text, q.fontSize, q.color, w, r),
     q.active = !0)
 }
-function startBigAnimText(a, b, d, e, f, h, g, l,s) {
+function startBigAnimText(a, b, d, e, f, h, g, l, s) {
     let ts = bigTextSize;
     if (s !== undefined) {
       ts = medTextSize/3;
