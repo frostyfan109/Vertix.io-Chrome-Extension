@@ -478,7 +478,22 @@ function alg(player) {
 function sortAlg(a,b) {
   let p1Col = a[3];
   let p2Col = b[3];
-  if (p1Col ^ p2Col) {
+  if (hackCfg.mouseAssistance) {
+    var z = 0;
+    void 0 != getCurrentWeapon(player) && (z = getCurrentWeapon(player).yOffset);
+    let dist = mathSQRT(mathPOW(mouseY - (screenHeight / 2 - z / 2), 2) + mathPOW(mouseX - screenWidth / 2, 2));
+    dist *= mathMIN(maxScreenWidth / screenWidth, maxScreenHeight / screenHeight);
+    let rad = mathATAN2(screenHeight / 2 - z / 2 - mouseY, screenWidth / 2 - mouseX);
+    rad = rad.round(2);
+    dist = dist.round(2);
+    let aDeg = a[1];
+    let bDeg = b[1];
+    let aDiff = Math.max(rad,aDeg) - Math.min(rad,aDeg);
+    let bDiff = Math.max(rad,bDeg) - Math.min(rad,bDeg);
+    return aDiff - bDiff;
+    //return true;
+  }
+  else if (p1Col ^ p2Col) {
     return p1Col-p2Col;
   }
   let play1 = alg(a);
@@ -567,7 +582,7 @@ function testCol(data) {
 
     let a = myPlayer;
     var d = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]
-      , d = (target.f + mathPI + d).round(2)
+      , d = (radians + mathPI + d).round(2)
       , e = getCurrentWeapon(a).holdDist + getCurrentWeapon(a).bDist
       , f = mathRound(a.x + e * mathCOS(d))
       , e = mathRound(a.y - getCurrentWeapon(a).yOffset - a.jumpY + e * mathSIN(d));
@@ -667,6 +682,9 @@ function gameInput(a) {
     //data.sort(function(a,b){return a[0]-b[0]});
     data.sort(sortAlg);
     //if (data.length!==0){console.log(data);}
+    for (var i=0;i<coords.length;i++) {
+      coords[i].push(coords[i][0]===data[0][2]);
+    }
     if ('aimhacks' in hackCfg && hackCfg['aimhacks']) {
       if (data.length > 0) {
         if (!locked || mostRecentTarget[0] !== data[0][2] || mostRecentTarget[1] !== data[0][3]) {
@@ -674,7 +692,15 @@ function gameInput(a) {
           startBigAnimText("Locked onto "+data[0][2].name,data[0][3] ? "No shot" : "Clear shot", Infinity, !0, "#d3d3d3", data[0][3] ? "#ff0000" : "#00ff00", !1, 2,true);
         }
         locked = true;
-        target.f=data[0][1];
+        if (!hackCfg.autoFire) {
+          target.f=data[0][1];
+          //console.log("targetting");
+        }
+        else if (!data[0][2].spawnProtection && Date.now()-getCurrentWeapon(myPlayer).lastShot >= getCurrentWeapon(myPlayer).fireRate && !data[0][3] && getCurrentWeapon(myPlayer).ammo !== 0 && !myPlayer.dead && !gameOver) {
+          target.f = data[0][1];
+          //console.log("shooting & targetting");
+          keys.lm = 1;
+        }
         mostRecentTarget = [data[0][2],data[0][3]];
         //console.log("setting cursor");
         //console.log(data[0][2].x,data[0][2].y);
@@ -2194,8 +2220,9 @@ function updateGameLoop() {
                 // }
                 // }
                 if (hackCfg.infiniteAmmo === 2 && getCurrentWeapon(player) !== null && getCurrentWeapon(player).ammo === 1) {
-                  if (getCurrentWeapon(player).shotsFired !== undefined && getCurrentWeapon(player).maxAmmo === getCurrentWeapon.shotsFired)
-                  getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo;
+                  if (getCurrentWeapon(player).shotsFired !== undefined && getCurrentWeapon(player).maxAmmo === getCurrentWeapon.shotsFired) {
+                    getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo;
+                  }
                   //getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo; //ensures that player will never have to reload while also partially from getting banned by server
                 }
                 gameObjects[e].index != player.index || gameOver || (sendData = {
@@ -2298,7 +2325,7 @@ function doGame(a) {
     updateBullets(a);
     updateParticles(a, 1);
     drawMap(2);
-    highlightTiles();
+    if(hackCfg.collisionOutlines){highlightTiles();}
     drawPlayerNames();
     drawEdgeShader();
     drawGameLights(a);
@@ -2351,9 +2378,14 @@ function highlightTiles() {
     }
     if (player.x >= tile.x && player.x <= tile.x+mapTileScale && player.y >= tile.y && player.y <= tile.y+mapTileScale) {
       graph.fillStyle = "#00ff00";
-      graph.strokeStyle = "#00ff00";
+      graph.strokeStyle = "#000000";
       graph.globalAlpha = "0.2";
-      graph.fillRect(tile.x-startX,tile.y-startY,tile.scale,tile.scale);
+      let thickness = 1.5;
+      graph.lineWidth = thickness;
+      graph.lineCap = "butt";
+      graph.fillRect(tile.x-startX+(thickness/2),tile.y-startY+(thickness/2),tile.scale-thickness,tile.scale-thickness);
+      graph.globalAlpha = "1.0";
+      graph.strokeRect(tile.x-startX,tile.y-startY,tile.scale,tile.scale);
       graph.stroke();
       break;
     }
@@ -2425,8 +2457,10 @@ function drawPlayerLines() {
   graph.arc(h,g-player.height/2,8,0,2*Math.PI);
   graph.fillStyle = "#7c1d1d";
   graph.fill();
+  graph.stroke();
   //console.log(coords);
   for (var i=0;i<coords.length;i++) {
+    graph.beginPath();
     //let data = coords[i];
     let enemyPlayer = coords[i][0];
     let radians = coords[i][1];
@@ -2462,7 +2496,7 @@ function drawPlayerLines() {
     //graph.moveTo((h-player.width/2)+player.width/2,(g-player.height/2));
     graph.moveTo(h,g-player.height/2);
     let coordPairs = [[h,g-player.height/2]];
-    graph.strokeStyle = "#ff0000";
+    graph.strokeStyle = coords[i][2] ? "#00ff00" : "#ff0000";
     //graph.lineTo(playerCentroid.x,playerCentroid.y);
     b = enemyPlayer;
     h = b.x - startX;
@@ -2501,6 +2535,7 @@ function drawPlayerLines() {
 
     graph.lineTo(h,g-(enemyPlayer.height/2));
     graph.globalAlpha = prevAlpha;
+    graph.stroke();
   }
   graph.stroke();
 }
@@ -3175,6 +3210,9 @@ function shootNextBullet(a, b) {
     delete d
 }
 function shootBullet(a) {
+    if (hackCfg.autoFire) {
+      keys.lm = 0;
+    }
     if (!a.dead && void 0 != getCurrentWeapon(a) && 0 == a.spawnProtection && 0 <= getCurrentWeapon(a).weaponIndex && 0 >= getCurrentWeapon(a).reloadTime && 0 < getCurrentWeapon(a).ammo) {
         screenShake(getCurrentWeapon(a).shake, target.f);
         for (var b = 0; b < getCurrentWeapon(a).bulletsPerShot; ++b) {
@@ -3974,6 +4012,17 @@ function drawGameObjects(a) {
                 playerContext.globalCompositeOperation = "source-over",
                 b.hitFlash -= .01 * a,
                 0 > b.hitFlash && (b.hitFlash = 0));
+                let color = "#ff0000";
+                for (var i=0;i<coords.length;i++) {
+                  if (coords[i][2] && coords[i][0] === b) {
+                    color = "#00ff00";
+                  }
+                }
+                if (b.spawnProtection) {color = "#ffa500";}
+                playerContext.strokeStyle = color;
+                let thickness = 2;
+                playerContext.lineWidth = thickness;
+                playerContext.strokeRect(0-(b.width/2),0-b.height,player.width,player.height);
                 drawSprite(graph, playerCanvas, h - playerCanvas.width / 2, g - playerCanvas.height / 2, playerCanvas.width, playerCanvas.height, 0, !1, 0, 0, 0);
                 playerContext.restore()
             }

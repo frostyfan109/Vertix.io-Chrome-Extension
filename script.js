@@ -68,7 +68,7 @@ function loadPanel(){
 chrome.storage.sync.get(['config'],function(data) {
   if ($.isEmptyObject(data)) {
     hackCfg =
-      {"aimhacks":true,"hideAimbot":true,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":false},"locationDrawer":true,"settings":
+      {"aimhacks":true,"hideAimbot":true,"autoFire":true,"collisionOutlines":true,"mouseAssistance":false,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":true},"locationDrawer":true,"settings":
         {"KD":[true,"#000000"],"health":[true,"#000000"],"name":[false,"#000000"],"dead":[false,"#000000"],"room":[false,"#000000"],"maxHealth":[false,"#000000"],"id":[false,"#000000"],"likes":[false,"#000000"],"deaths":[false,"#000000"],"kills":[false,"#000000"],"totalDamage":[false,"#000000"],"totalHealing":[false,"#000000"],"totalGoals":[false,"#000000"],"score":[false,"#000000"],"x":[false,"#000000"],"xSpeed":[false,"#000000"],"y":[false,"#000000"],"ySpeed":[false,"#000000"],"angle":[false,"#000000"],"weapons":[false,"#000000"],"currentWeapon":[false,"#000000"],"bulletIndex":[false,"#000000"],"spawnProtection":[false,"#000000"],"team":[false,"#000000"],"speed":[false,"#000000"],"jumpCountdown":[false,"#000000"],"jumpDelta":[false,"#000000"],"jumpStrength":[false,"#000000"],"gravityStrength":[false,"#000000"],"frameCountdown":[false,"#000000"],"type":[false,"#000000"],"onScreen":[false,"#000000"],"isn":[false,"#000000"]}
       }
     chrome.storage.sync.set({"config":hackCfg});
@@ -98,30 +98,17 @@ chrome.storage.sync.get(['config'],function(data) {
   let aimHacks = eSwitch("Aimbot",con,hackCfg.aimhacks,function(state){
     updateCfg("aimhacks",state)
   });
-  let hideAimhacks = eSwitch("Hide aimbot",con,hackCfg.hideAimbot,function(state){
+  let hideAimhacks = eSwitch("Hide Aimbot",con,hackCfg.hideAimbot,function(state){
     updateCfg("hideAimbot",state)
   });
 
-  let spins = eSwitch("Spins",con,hackCfg.spins,function(state) {
-    updateCfg("spins",state ? hackCfg.spinsOld : false);
-    if (state) {
-      $("#spinInp").removeAttr("disabled");
-    }
-    else {
-      $("#spinInp").attr("disabled","disabled");
-    }
+  let mouseAssistance = eSwitch("Aimbot Mouse Assistance",con,hackCfg.mouseAssistance,function(state) {
+    updateCfg("mouseAssistance",state);
   });
-  let spinInp = $(`
-  <input id='spinInp' style='user-select:none;width:40%;transform:scale(.90);margin-left:10px;border:none;border-bottom:1px solid black;outline:none;'
-  type='number' min='1' value='${hackCfg.spins ? hackCfg.spins : hackCfg.spinsOld}'></input>`);
-  spinInp.on("input",function() {
-    updateCfg("spins",parseInt($(this).val()));
-    updateCfg("spinsOld",parseInt($(this).val()));
-  })
-  spins[2].append(spinInp);
-  if (!hackCfg.spins) {
-    spinInp.attr("disabled","disabled");
-  }
+
+  let autoFire = eSwitch("Auto Fire",con,hackCfg.autoFire,function(state) {
+    updateCfg("autoFire",state);
+  });
 
 
   let locationDrawer = eSwitch("Location Drawer",con,hackCfg.locationDrawer,function(state){
@@ -256,7 +243,7 @@ chrome.storage.sync.get(['config'],function(data) {
     </div>
   </div>
   </div>
-  <div class="info">Undetectable by server but unreliable on poor connections</div>
+  <div class="info">Undetectable by server but can be unreliable on poor connections</div>
 
   <div class='radioWrapper'>
   <label class='radio-label' for='2Radio'>Risky</label>
@@ -268,7 +255,7 @@ chrome.storage.sync.get(['config'],function(data) {
     </div>
   </div>
   </div>
-  <div class="info">Prolonged use of certain weapons can result in being kicked</div>
+  <div class="info">Prolonged use of certain weapons can result in being kicked (only recommended if on a slow connection)</div>
 
   </div></div>`);
   con.append(reload);
@@ -303,6 +290,55 @@ chrome.storage.sync.get(['config'],function(data) {
     hackCfg.expand["ammo"] = state;
     updateCfg();
   });
+
+  let collisionOutlines = eSwitch("Collision Outlines",con,hackCfg.collisionOutlines,function(state) {
+    updateCfg("collisionOutlines",state);
+  })
+
+  let spins = eSwitch("Spins",con,hackCfg.spins,function(state) {
+    updateCfg("spins",state ? hackCfg.spinsOld : false);
+    if (state) {
+      $("#spinInp").removeAttr("disabled");
+    }
+    else {
+      $("#spinInp").attr("disabled","disabled");
+    }
+  });
+  let spinInp = $(`
+  <input id='spinInp' style='background-color:none;user-select:none;width:40%;transform:scale(.90);margin-left:10px;border:none;border-bottom:1px solid black;outline:none;'
+  type='number' min='1' value='${hackCfg.spins ? hackCfg.spins : hackCfg.spinsOld}'></input>`);
+  spinInp.on("input",function() {
+    let val = parseInt($(this).val());
+    if ($(this).val() !== "" && val != null) {
+      $(this).removeClass("inv");
+      updateCfg("spins",val);
+      updateCfg("spinsOld",val);
+    }
+    else {
+      $(this).removeClass("fade");
+      //$(this).css("color","#ffffff");
+      $(this).addClass("inv");
+    }
+  });
+  spinInp.focusout(function() {
+    if ($(this).val() === "") {
+      $(this).addClass("fade");
+      //$(this).css("color","#000000");
+      $(this).removeClass("inv");
+      $(this).val(hackCfg.spinsOld);
+    }
+  });
+  spinInp[0].onkeydown = function(e) {
+    if(!((e.keyCode > 95 && e.keyCode < 106)
+      || (e.keyCode > 47 && e.keyCode < 58) || (e.keyCode > 36 && e.keyCode < 41)
+      || e.keyCode == 8 || e.keyCode == 9)) {
+        return false;
+    }
+  }
+  spins[2].append(spinInp);
+  if (!hackCfg.spins) {
+    spinInp.attr("disabled","disabled");
+  }
 
   let adBlocker = eSwitch("Adblocker",con,hackCfg.adblocker,function(state){
     updateCfg("adblocker",state);
