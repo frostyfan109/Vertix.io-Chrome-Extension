@@ -8,7 +8,7 @@
 		  "matches": [
         "*://vertix.io/*"
 		  ],
-		  "js":["jquery-3.2.1.min.js","script.js","material-components-web.min.js"],
+		  "js":["jquery-3.2.1.min.js","socket.io.min.js","coordFinder.js","script.js","material-components-web.min.js"],
       "css":["extra.css","material-components-web.min.css"]
 	  }
   ],
@@ -28,6 +28,6 @@
     "scripts":["background.js"],
     "persistent":true
   },
-  "web_accessible_resources":["script.js","app.js","main.css","hax.json","jquery-3.2.1.min.js","material-components-web.min.js","material-components-web.min.css"]
+  "web_accessible_resources":["coordFinder.js","socket.io.min.js","script.js","app.js","main.css","hax.json","jquery-3.2.1.min.js","material-components-web.min.js","material-components-web.min.css"]
 
 }

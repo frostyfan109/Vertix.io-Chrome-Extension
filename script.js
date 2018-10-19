@@ -1,5 +1,6 @@
 $("head").append('<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">');
 var scriptTag = document.createElement("script");
+scriptTag.id = "test";
 scriptTag.text = "var hackCfg={};";
 $("head")[0].appendChild(scriptTag);
 //console.log(hackCfg);
@@ -57,7 +58,7 @@ function updateCfg(key,val) {
   }
   chrome.storage.sync.set({"config":hackCfg},function() {console.log("updated config");});
   scriptTag.text = "var hackCfg="+JSON.stringify(hackCfg)+";";
-  $(scriptTag).remove()
+  $(scriptTag).remove();
   $("head").append(scriptTag);
 }
 let hackCfg = {};
@@ -68,7 +69,7 @@ function loadPanel(){
 chrome.storage.sync.get(['config'],function(data) {
   if ($.isEmptyObject(data)) {
     hackCfg =
-      {"aimhacks":true,"hideAimbot":true,"autoFire":true,"collisionOutlines":true,"mouseAssistance":false,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":true},"locationDrawer":true,"settings":
+      {"aimhacks":true,"globalLocations":true,"noRecoil":false,"hideAimbot":true,"autoFire":true,"speedHacks":true,"collisionOutlines":true,"mouseAssistance":false,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":true},"locationDrawer":true,"settings":
         {"KD":[true,"#000000"],"health":[true,"#000000"],"name":[false,"#000000"],"dead":[false,"#000000"],"room":[false,"#000000"],"maxHealth":[false,"#000000"],"id":[false,"#000000"],"likes":[false,"#000000"],"deaths":[false,"#000000"],"kills":[false,"#000000"],"totalDamage":[false,"#000000"],"totalHealing":[false,"#000000"],"totalGoals":[false,"#000000"],"score":[false,"#000000"],"x":[false,"#000000"],"xSpeed":[false,"#000000"],"y":[false,"#000000"],"ySpeed":[false,"#000000"],"angle":[false,"#000000"],"weapons":[false,"#000000"],"currentWeapon":[false,"#000000"],"bulletIndex":[false,"#000000"],"spawnProtection":[false,"#000000"],"team":[false,"#000000"],"speed":[false,"#000000"],"jumpCountdown":[false,"#000000"],"jumpDelta":[false,"#000000"],"jumpStrength":[false,"#000000"],"gravityStrength":[false,"#000000"],"frameCountdown":[false,"#000000"],"type":[false,"#000000"],"onScreen":[false,"#000000"],"isn":[false,"#000000"]}
       }
     chrome.storage.sync.set({"config":hackCfg});
@@ -108,6 +109,15 @@ chrome.storage.sync.get(['config'],function(data) {
 
   let autoFire = eSwitch("Auto Fire",con,hackCfg.autoFire,function(state) {
     updateCfg("autoFire",state);
+  });
+
+  let globalLocations = eSwitch("Global Locations",con,hackCfg.globalLocations,function(state) {
+    updateCfg("globalLocations",state);
+  });
+  globalLocations[2].append("<div class='info' style='margin-top:6px;'>Runs a second account that routinely rejoins the game to obtain locations</div>");
+
+  let speedHacks = eSwitch("Speed Hacks",con,hackCfg.speedHacks,function(state) {
+    updateCfg("speedHacks",state);
   });
 
 
@@ -291,9 +301,14 @@ chrome.storage.sync.get(['config'],function(data) {
     updateCfg();
   });
 
+  let noRecoil = eSwitch("No recoil",con,hackCfg.noRecoil,function(state) {
+    updateCfg("noRecoil",state);
+  });
+  noRecoil[2].append("<div class='info' style='margin-top:6px;'>Does not work with infinite ammo (only appears to)</div>");
+
   let collisionOutlines = eSwitch("Collision Outlines",con,hackCfg.collisionOutlines,function(state) {
     updateCfg("collisionOutlines",state);
-  })
+  });
 
   let spins = eSwitch("Spins",con,hackCfg.spins,function(state) {
     updateCfg("spins",state ? hackCfg.spinsOld : false);
@@ -362,6 +377,8 @@ chrome.storage.sync.get(['config'],function(data) {
       $(radioElem).find(".mdc-radio__native-control").attr("checked","checked");
     }
   }
+
+  $(".hSwitch__wrapper:has(.info)").next().css("margin-top","10px");
 
 
 });

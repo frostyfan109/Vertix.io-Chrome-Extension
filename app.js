@@ -7,6 +7,22 @@ let reloadEventSafe = true;
 if (void 0 === hackCfg) {
   var hackCfg = {};
 }
+if (void 0 === playerCoords) {
+  var playerCoords = [];
+}
+
+var scriptTag = document.createElement("p");
+scriptTag.id = "data";
+let cIp = null;
+let cPort = null;
+let cSwap = [];
+scriptTag.innerText = JSON.stringify({ip:null,port:null,swapS:cSwap,pName:""});
+$("head")[0].appendChild(scriptTag);
+
+function updS() {
+  scriptTag.innerText = JSON.stringify({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName});
+  //scriptTag.text = `var ip='${cIp}';var port='${cPort}';`;
+}
 
 zip.workerScriptsPath = "../js/lib/";
 /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) && (mobile = !0,
@@ -28,6 +44,7 @@ var previousClass = 0
 function startGame(a) {
     startingGame || changingLobby || (startingGame = !0,
     playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, "").substring(0, 25),
+    updS(),
     enterGame(a),
     inMainMenu && ($("#loadingWrapper").fadeIn(0, function() {}),
     document.getElementById("loadText").innerHTML = "CONNECTING"))
@@ -157,6 +174,9 @@ window.onload = function() {
     ,
     $.get("/getIP", function(a) {
         port = a.port;
+        cPort = a.port;
+        cIp = a.ip;
+        updS();
         socket || (socket = io.connect("http://" + (devTest ? "localhost" : a.ip) + ":" + a.port, {
             reconnection: !0,
             forceNew: !1
@@ -173,7 +193,7 @@ window.onload = function() {
             loginMessage.style.display = "block",
             loginMessage.innerHTML = "Logging in...") : loadSavedClass();
             btn.onclick = function() {
-                startGame("player")
+                (!hackCfg.globalLocations || ($("#serverKeyTxt").text() !== "none")) && startGame("player")
             }
             ;
             playerNameInput.addEventListener("keypress", function(a) {
@@ -285,6 +305,9 @@ window.onload = function() {
                         lobbyMessage.style.display = "block";
                         lobbyMessage.innerHTML = "Please wait...";
                         changingLobby = !0;
+                        cIp = lobbyInput.value.split("/")[0];
+                        cSwap = [lobbyInput.value.split("/")[1],lobbyPass.value];
+                        updS();
                         var b = io.connect("http://" + lobbyInput.value.split("/")[0] + ":" + port, {
                             reconnection: !0,
                             forceNew: !0
@@ -445,6 +468,9 @@ c.addEventListener("mousedown", mouseDown, !1);
 c.addEventListener("drag", mouseDown, !1);
 c.addEventListener("click", focusGame, !1);
 c.addEventListener("mouseup", mouseUp, !1);
+
+
+
 var lastAngle = 0
   , lastDist = 0
   , targetChanged = !0;
@@ -464,7 +490,7 @@ function alg(player) {
   //let score = healthScore*distance*kd;
   let maxHealthScore = 100;
   let maxDistance = 1275;
-  let score = (distance/maxDistance)*(healthScore/maxHealthScore);
+  let score = (distance/maxDistance)*(healthScore/100);
   //bigger is better
   if (isNaN(score)) {
     console.log("NaN",healthScore,distance,kd);
@@ -566,7 +592,7 @@ function testCol(data) {
   testing = [[],[],[]];
   for (var i=0;i<gameMap.tiles.length;i++) {
     let tile = gameMap.tiles[i];
-    if (!tile.wall || !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale)) {
+    if (!tile.wall || (hackCfg.globalLocations ? false : !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale))) { //optimized
       continue;
     }
     let hyp = data[0];
@@ -649,7 +675,17 @@ function gameInput(a) {
       let y;
       let hyp;
       let radians;
-      slope = [(myPlayerCentroid.y-playerCentroid.y),(myPlayerCentroid.x-playerCentroid.x)];
+
+      let a = myPlayer
+      var d = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]
+        , d = (target.f + mathPI + d).round(2)
+        , e = getCurrentWeapon(a).holdDist + getCurrentWeapon(a).bDist
+        , f = mathRound(a.x + e * mathCOS(d))
+        , e = mathRound(a.y - getCurrentWeapon(a).yOffset - a.jumpY + e * mathSIN(d));
+
+      slope = [(e-playerCentroid.y),(f-playerCentroid.x)];
+
+      //slope = [(myPlayerCentroid.y-playerCentroid.y),(myPlayerCentroid.x-playerCentroid.x)];
       //console.log(slope);
       x = slope[1];
       y = slope[0];
@@ -663,15 +699,22 @@ function gameInput(a) {
       //let radians = target.f;
       //console.log(y,x);
       radians = Math.atan(y/x);
+
+
+      //let spread = getCurrentWeapon(myPlayer).spread[getCurrentWeapon(myPlayer).spreadIndex];
+      //radians+=spread;
+
+
       //console.log("Angle:",radians*(180/Math.PI),";","Radians:",radians);
       if (myPlayer.x < player.x) {
         let degrees = radians * (180 / Math.PI);
         degrees = 180+degrees;
         radians = degrees * (Math.PI / 180);
       }
+
       //console.log(radians);
       //target.f = radians;
-      if (player.onScreen) {
+      if (player.onScreen || (hackCfg.globalLocations && player.id !== workerId) && !player.dead) {
         let inf = [hyp,radians,player,testCol([hyp,radians,myPlayer,playerCentroid])];
         data.push(inf);
         coords.push([player,radians]);
@@ -1081,7 +1124,7 @@ function settingSelectChat(a) {
     setCookie("selectChat", selectChat ? "true" : "false");
     selectChat ? document.getElementById("chatList").style.pointerEvents = "auto" : document.getElementById("chatList").style.pointerEvents = "none"
 }
-var targetFPS = 30;
+
 if ("" != getCookie("targetFPS")) {
     targetFPS = getCookie("targetFPS");
     try {
@@ -1227,6 +1270,9 @@ function setupSocket(a) {
     a.on("cSrvRes", function(a, d) {
         d ? (serverKeyTxt.innerHTML = a,
         serverCreateMessage.innerHTML = "Success. Created server with IP: " + a) : serverCreateMessage.innerHTML = a;
+        cIp = a.split("/")[0];
+        cSwap = [a.split("/")[1],$("#serverPass")[0].value];
+        updS();
         reloadEventSafe = true;
     });
     a.on("regRes", function(a, d) {
@@ -1340,8 +1386,10 @@ function setupSocket(a) {
             gameHeight = gameMap.height;
             mapTileScale = a.tileScale;
             gameObjects = a.usersInRoom;
-            for (d = 0; d < gameObjects.length; ++d)
+            for (d = 0; d < gameObjects.length; ++d) {
                 gameObjects[d].type = "player";
+                //console.log(gameObjects[d].x,gameObjects[d].y);
+              }
             gameMode = gameMap.gameMode;
             "blue" == a.you.team ? document.getElementById("gameModeText").innerHTML = gameMode.desc2 : document.getElementById("gameModeText").innerHTML = gameMode.desc1;
             currentLikeButton = "";
@@ -1408,6 +1456,7 @@ function setupSocket(a) {
     a.on("ex", createExplosion);
     a.on("r", function(a) {
         var b = findUserByIndex(player.index);
+        console.log("ammo full");
         null != b && (0 == a && 1 < b.weapons[a].maxAmmo && showNotification("Ammo Full"),
         b.weapons[a].reloadTime = 0,
         b.weapons[a].shotsFired = 0,
@@ -2177,7 +2226,25 @@ function updateGameLoop() {
       //console.log(radToDeg(rad));
       target.f = rad;
     }
+    if (!keys.lm && prevTarg !== null) {
+      target.f = prevTarg;
+      prevTarg = null;
+    }
 
+
+    for (var i=0;i<gameObjects.length;i++) {
+      let obj = gameObjects[i];
+      for (var n=0;n<playerCoords.length;n++) {
+        let play = playerCoords[n];
+        if (typeof gameObjects[i] === "object" && ("id" in gameObjects[i] && gameObjects[i].id === play.id)) {
+          let actualPlayer = obj;
+          if (!obj.onScreen && obj.team !== player.team && !obj.dead) {
+            obj.x = play.x;
+            obj.y = play.y;
+          }
+        }
+      }
+    }
     gameInput();
 
     if (clientPrediction)
@@ -2228,12 +2295,12 @@ function updateGameLoop() {
                 gameObjects[e].index != player.index || gameOver || (sendData = {
                     hdt: horizontalDT / 2,
                     vdt: verticalDT / 2,
-                    ts: currentTime,
+                    ts: currentTime+(hackCfg.speedHacks ? (inputNumber*60) : 0),
                     isn: inputNumber,
                     s: a
                 },
                 inputNumber++,
-                player["gravityStrength"] = 0.005,
+                //player["gravityStrength"] = 0.005,
 
 
                 //console.log(sendData),
@@ -2308,7 +2375,7 @@ function drawOverlay(a, b, d) {
 var drawMiniMapFPS = 4
   , drawMiniMapCounter = 0;
 function doGame(a) {
-    if (hackCfg.infiniteAmmo && getCurrentWeapon(player) !== null && reloadEventSafe){socket.emit("r")};
+    if (hackCfg.infiniteAmmo && getCurrentWeapon(player) !== null && reloadEventSafe){socket.emit("r");}
     //updateScreenShake(a);
     if (hackCfg.spins !== false) {
       target.dOffset = 0;
@@ -3209,20 +3276,45 @@ function shootNextBullet(a, b) {
     }
     delete d
 }
+let prevTarg = null;
+var offset = 0;
 function shootBullet(a) {
     if (hackCfg.autoFire) {
       keys.lm = 0;
     }
+    // if (prevTarg == null) {
+    //   prevTarg = target.f;
+    // }
+    //
+    // target.f = prevTarg;
+    // prevTarg = target.f;
+    //
+    // let offset = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex];
+    // console.log(offset);
+    // if (offset > 0) {
+    //   target.f+=offset;
+    // }
+    // else {
+    //   target.f-=offset;
+    // }
+
     if (!a.dead && void 0 != getCurrentWeapon(a) && 0 == a.spawnProtection && 0 <= getCurrentWeapon(a).weaponIndex && 0 >= getCurrentWeapon(a).reloadTime && 0 < getCurrentWeapon(a).ammo) {
         screenShake(getCurrentWeapon(a).shake, target.f);
         for (var b = 0; b < getCurrentWeapon(a).bulletsPerShot; ++b) {
             getCurrentWeapon(a).spreadIndex++;
             getCurrentWeapon(a).spreadIndex >= getCurrentWeapon(a).spread.length && (getCurrentWeapon(a).spreadIndex = 0);
+            if (hackCfg.noRecoil) {
+              if (!hackCfg.aimhacks) {target.f+=offset};
+              offset = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex];
+              target.f-=offset;
+            }
             var d = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]
               , d = (target.f + mathPI + d).round(2)
               , e = getCurrentWeapon(a).holdDist + getCurrentWeapon(a).bDist
               , f = mathRound(a.x + e * mathCOS(d))
               , e = mathRound(a.y - getCurrentWeapon(a).yOffset - a.jumpY + e * mathSIN(d));
+              //console.log(d,target.f+Math.PI+getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]);
+              //target.f
             shootNextBullet({
                 x: f,
                 y: e,
@@ -3240,13 +3332,14 @@ function shootBullet(a) {
         0 >= getCurrentWeapon(a).ammo && playerReload(a, !0);
         updateUiStats(a)
     }
+    //target.f = prevTarg;
 }
 function playerReload(a, b) {
     0 >= getCurrentWeapon(a).reloadTime && getCurrentWeapon(a).ammo != getCurrentWeapon(a).maxAmmo && (getCurrentWeapon(a).reloadTime = getCurrentWeapon(a).reloadSpeed,
     getCurrentWeapon(a).spreadIndex = 0,
-    showNotification("Reloading"),
-    b && socket.emit("r"),
-    setCooldownAnimation(a.currentWeapon, getCurrentWeapon(a).reloadTime, !0))
+    //showNotification("Reloading"),
+    b && socket.emit("r"));
+    //setCooldownAnimation(a.currentWeapon, getCurrentWeapon(a).reloadTime, !0))
 }
 function findServerBullet(a) {
     for (var b = 0; b < bullets.length; ++b)
