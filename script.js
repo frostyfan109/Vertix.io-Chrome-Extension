@@ -69,7 +69,7 @@ function loadPanel(){
 chrome.storage.sync.get(['config'],function(data) {
   if ($.isEmptyObject(data)) {
     hackCfg =
-      {"aimhacks":true,"globalLocations":true,"noRecoil":false,"hideAimbot":true,"autoFire":true,"speedHacks":true,"collisionOutlines":true,"mouseAssistance":false,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":true},"locationDrawer":true,"settings":
+      {"aimhacks":true,"bots":false,"globalLocations":true,"noRecoil":false,"hideAimbot":true,"autoFire":true,"speedHacks":true,"collisionOutlines":true,"mouseAssistance":false,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":true},"locationDrawer":true,"settings":
         {"KD":[true,"#000000"],"health":[true,"#000000"],"name":[false,"#000000"],"dead":[false,"#000000"],"room":[false,"#000000"],"maxHealth":[false,"#000000"],"id":[false,"#000000"],"likes":[false,"#000000"],"deaths":[false,"#000000"],"kills":[false,"#000000"],"totalDamage":[false,"#000000"],"totalHealing":[false,"#000000"],"totalGoals":[false,"#000000"],"score":[false,"#000000"],"x":[false,"#000000"],"xSpeed":[false,"#000000"],"y":[false,"#000000"],"ySpeed":[false,"#000000"],"angle":[false,"#000000"],"weapons":[false,"#000000"],"currentWeapon":[false,"#000000"],"bulletIndex":[false,"#000000"],"spawnProtection":[false,"#000000"],"team":[false,"#000000"],"speed":[false,"#000000"],"jumpCountdown":[false,"#000000"],"jumpDelta":[false,"#000000"],"jumpStrength":[false,"#000000"],"gravityStrength":[false,"#000000"],"frameCountdown":[false,"#000000"],"type":[false,"#000000"],"onScreen":[false,"#000000"],"isn":[false,"#000000"]}
       }
     chrome.storage.sync.set({"config":hackCfg});
@@ -109,6 +109,10 @@ chrome.storage.sync.get(['config'],function(data) {
 
   let autoFire = eSwitch("Auto Fire",con,hackCfg.autoFire,function(state) {
     updateCfg("autoFire",state);
+  });
+
+  let bots = eSwitch("Bots",con,hackCfg.bots,function(state) {
+    updateCfg("bots",state);
   });
 
   let globalLocations = eSwitch("Global Locations",con,hackCfg.globalLocations,function(state) {

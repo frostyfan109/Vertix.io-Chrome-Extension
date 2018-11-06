@@ -1,4 +1,4 @@
-var startingGame = 0;
+function Bot(){var startingGame = 0;
 var changingLobby = 0;
 var socket;
 var room;
@@ -150,3 +150,5 @@ function conn() {
 $(document).ready(function() {
   conn();
 });
+}
+Bot();

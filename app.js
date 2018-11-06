@@ -16,11 +16,12 @@ scriptTag.id = "data";
 let cIp = null;
 let cPort = null;
 let cSwap = [];
-scriptTag.innerText = JSON.stringify({ip:null,port:null,swapS:cSwap,pName:""});
+let started=false;
+let bots = [];
+scriptTag.innerText = JSON.stringify({ip:null,port:null,swapS:cSwap,pName:"",start:started});
 $("head")[0].appendChild(scriptTag);
-
 function updS() {
-  scriptTag.innerText = JSON.stringify({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName});
+  scriptTag.innerText = JSON.stringify({start:started,ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName});
   //scriptTag.text = `var ip='${cIp}';var port='${cPort}';`;
 }
 
@@ -44,6 +45,7 @@ var previousClass = 0
 function startGame(a) {
     startingGame || changingLobby || (startingGame = !0,
     playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, "").substring(0, 25),
+    started = true,
     updS(),
     enterGame(a),
     inMainMenu && ($("#loadingWrapper").fadeIn(0, function() {}),
@@ -57,8 +59,11 @@ function enterGame(a) {
     screenWidth = window.innerWidth;
     screenHeight = window.innerHeight;
     document.getElementById("startMenuWrapper").style.display = "none";
-    room || socket.emit("create");
+    room || (socket.emit("create"));
     socket.emit("respawn");
+    if (bots.length === 0) {
+      createBots();
+    }
     hideMenuUI();
     animateOverlay = !0;
     updateGameLoop()
@@ -307,6 +312,8 @@ window.onload = function() {
                         changingLobby = !0;
                         cIp = lobbyInput.value.split("/")[0];
                         cSwap = [lobbyInput.value.split("/")[1],lobbyPass.value];
+                        disconnectBots();
+                        started=false;
                         updS();
                         var b = io.connect("http://" + lobbyInput.value.split("/")[0] + ":" + port, {
                             reconnection: !0,
@@ -698,7 +705,7 @@ function gameInput(a) {
       //console.log("Angle:",angle);
       //let radians = target.f;
       //console.log(y,x);
-      radians = Math.atan(y/x);
+      // radians = Math.atan(y/x);
 
 
       //let spread = getCurrentWeapon(myPlayer).spread[getCurrentWeapon(myPlayer).spreadIndex];
@@ -706,16 +713,17 @@ function gameInput(a) {
 
 
       //console.log("Angle:",radians*(180/Math.PI),";","Radians:",radians);
-      if (myPlayer.x < player.x) {
-        let degrees = radians * (180 / Math.PI);
-        degrees = 180+degrees;
-        radians = degrees * (Math.PI / 180);
-      }
+      // if (myPlayer.x < player.x) {
+      //   let degrees = radians * (180 / Math.PI);
+      //   degrees = 180+degrees;
+      //   radians = degrees * (Math.PI / 180);
+      // }
+      radians = Math.atan2(y,x);
 
       //console.log(radians);
       //target.f = radians;
       if (player.onScreen || (hackCfg.globalLocations && player.id !== workerId) && !player.dead) {
-        let inf = [hyp,radians,player,testCol([hyp,radians,myPlayer,playerCentroid])];
+        let inf = [hyp,radians,player,testCol([hyp,radians,myPlayer,playerCentroid]),];
         data.push(inf);
         coords.push([player,radians]);
       }
@@ -737,6 +745,7 @@ function gameInput(a) {
         locked = true;
         if (!hackCfg.autoFire) {
           target.f=data[0][1];
+          target.d=data[0][0];
           //console.log("targetting");
         }
         else if (!data[0][2].spawnProtection && Date.now()-getCurrentWeapon(myPlayer).lastShot >= getCurrentWeapon(myPlayer).fireRate && !data[0][3] && getCurrentWeapon(myPlayer).ammo !== 0 && !myPlayer.dead && !gameOver) {
@@ -4690,3 +4699,84 @@ function callUpdate() {
     updateGameLoop())
 }
 callUpdate();
+
+function createBots() {
+  if (!hackCfg.bots) {
+    return;
+  }
+  for (var i=0;i<4;i++) {
+    console.log("creating new bot");
+    bots.push(new Bot({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName,player:player}));
+  }
+}
+
+function disconnectBots() {
+  for (var i=0;i<bots.length;i++) {
+    bots[i].disconnect();
+  }
+  bots = [];
+}
+
+class Bot {
+  constructor(data) {
+    this.data = data;
+    this.pIndex = null;
+    this.connectToServer();
+  }
+  connectToServer() {
+    this.socket = io.connect("http://" + this.data.ip + ":" + this.data.port, {
+      reconnection: !0,
+      forceNew: !1
+    });
+    this.setupSocket();
+    let self = this;
+    this.socket.once("connect", function() {
+      self.enterGame();
+    });
+  }
+  setupSocket() {
+    let self = this;
+    this.socket.on("welcome", function(b, d) {
+        b.name = self.playerName;
+        b.classIndex = 1;
+        console.log(b,d);
+        this.emit("gotit", b, d, Date.now(), !1);
+    });
+    this.socket.on("gameSetup", function(a, d, e) {
+        a = JSON.parse(a);
+        if (d) {
+          self.pIndex = a.you.index;
+        }
+        this.emit("respawn");
+    });
+    this.socket.on("3", function(a) {
+      if (a.gID == self.pIndex) {
+        console.log(self.playerName,"died");
+        this.emit("respawn");
+      }
+    });
+  }
+  enterGame() {
+    this.playerName = "TESTBOT"+Math.random().toFixed(3).slice(2);
+    if (this.data.swapS.length > 0) {
+      this.socket.emit("create", {
+        room: this.data.swapS[0],
+        servPass: this.data.swapS[1],
+        lgKey: "",
+        userName: ""
+      });
+    }
+    else {
+      this.socket.emit("create")
+    };
+    this.socket.emit("respawn");
+  }
+  disconnect() {
+    if (this.socket !== null) {
+      this.socket.once("disconnect", function() {
+        this.close();
+      });
+      this.socket.disconnect();
+    }
+  }
+}
