@@ -1929,12 +1929,17 @@ function receiveServerData(a) {
         for (d = 0; d < a.length; ) {
             b = a[0 + d];
             tmpUser = findUserByIndex(a[1 + d]);
-            if (a[1 + d] == player.index && null != tmpUser)
+            if (a[1 + d] == player.index && null != tmpUser) {
                 2 < b && (tmpUser.x = a[2 + d]),
                 3 < b && (tmpUser.y = a[3 + d]),
                 4 < b && (tmpUser.angle = a[4 + d]),
                 5 < b && (tmpUser.isn = a[5 + d]),
                 tmpUser.onScreen = !0;
+                for (var i=0;i<bots.length;i++) {
+                  bots[i].data.player.x = tmpUser.x;
+                  bots[i].data.player.y = tmpUser.y;
+                }
+            }
             else if (null != tmpUser) {
                 2 < b && (tmpUser.xSpeed = mathABS(tmpUser.x - a[2 + d]),
                 tmpUser.x = a[2 + d]);
@@ -4704,7 +4709,7 @@ function createBots() {
   if (!hackCfg.bots) {
     return;
   }
-  for (var i=0;i<4;i++) {
+  for (var i=0;i<1;i++) {
     console.log("creating new bot");
     bots.push(new Bot({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName,player:player}));
   }
@@ -4717,12 +4722,179 @@ function disconnectBots() {
   bots = [];
 }
 
+function testWallCol(x,y,width,height) {
+  for (var i=0;i<gameMap.tiles.length;i++) {
+    let tile = gameMap.tiles[i];
+    if (!tile.wall) {
+      continue;
+    }
+    var rect1 = {x: x, y: y, width: width, height: height}
+    var rect2 = {x: tile.x, y: tile.y, width: tile.scale, height: tile.scale}
+
+    if (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y) {
+      return tile;
+    }
+  }
+}
+
+function testWallCol2(r1){
+  for (var i=0;i<gameMap.tiles.length;i++) {
+    let tile = gameMap.tiles[i];
+    if (!tile.wall) {
+      continue;
+    }
+    var r2 = {x:tile.x,y:tile.y,w:tile.scale,h:tile.scale};
+    var dx=(r1.x+r1.w/2)-(r2.x+r2.w/2);
+    var dy=(r1.y+r1.h/2)-(r2.y+r2.h/2);
+    var width=(r1.w+r2.w)/2;
+    var height=(r1.h+r2.h)/2;
+    var crossWidth=width*dy;
+    var crossHeight=height*dx;
+    var collision;
+    if(Math.abs(dx)<=width && Math.abs(dy)<=height){
+        if(crossWidth>crossHeight){
+            collision=(crossWidth>(-crossHeight))?'bottom':'left';
+        }else{
+            collision=(crossWidth>-(crossHeight))?'right':'top';
+        }
+    }
+    if (collision !== undefined) {
+      return([tile,collision]);
+    }
+  }
+}
+
 class Bot {
   constructor(data) {
     this.data = data;
     this.pIndex = null;
+    this.alive = false;
+    this.botPlayer = null;
+    this.colWall = null;
     this.connectToServer();
+    let self = this;
+    this.moveInterval = setInterval(function(){self.move()},16.6);
   }
+
+  move() {
+    if (this.alive){
+      var hdt;
+      var vdt;
+      let playerX = this.data.player.x;
+      let playerY = this.data.player.y;
+      if (isNaN(playerX) || isNaN(playerY)) {
+        return;
+      }
+      let botX = this.botPlayer.x;
+      let botY = this.botPlayer.y;
+      playerX > botX ? hdt=1 : hdt=-1;
+      playerY > botY ? vdt=1 : vdt=-1;
+      if (this.colWall != null) {
+        if (botX == this.botPlayer.oldX && botY == this.botPlayer.oldY) {
+          if (this.colWall[1] != null) {this.colWall[1]*=-1};
+          if (this.colWall[2] != null) {this.colWall[2]*=-1};
+        }
+        // switch (this.colWall[1]) {
+        //   case "left":
+        //     playerY > botY ? vdt = 1/2: vdt = -1/2;
+        //     break;
+        //   case "right":
+        //     playerY > botY ? vdt = 1/2: vdt = -1/2;
+        //     break;
+        //   case "top":
+        //     playerX > botX ? hdt = 1/2: hdt = -1/2;
+        //     break;
+        //   case "bottom":
+        //     playerX > botX ? hdt = 1/2: hdt = -1/2;
+        //     break;
+        // }
+        if (this.colWall[1] != null) {hdt = this.colWall[1]};
+        if (this.colWall[2] != null) {vdt = this.colWall[2]};
+      }
+
+      let sendData = {
+          hdt: hdt / 2,
+          vdt: vdt / 2,
+          ts: currentTime,
+          isn: inputNumber,
+          s: 0
+      }
+      sendData["delta"] = 100;
+      var a,b,e;
+      a = sendData.hdt,
+      b = sendData.vdt,
+      e = mathSQRT(sendData.hdt * sendData.hdt + sendData.vdt * sendData.vdt),
+      0 != e && (a /= e,
+      b /= e);
+      var x = this.botPlayer.x + (a * this.botPlayer.speed * sendData.delta);
+      var y = this.botPlayer.y + (b * this.botPlayer.speed * sendData.delta);
+      // console.log(wallCol(this.botPlayer));
+      // if (this.botPlayer.x == this.botPlayer.oldX) {
+      //   sendData.hdt*=-1;
+      // }
+      // if (this.botPlayer.y == this.botPlayer.oldY) {
+      //   sendData.vdt*=-1;
+      // }
+      let wallCollision = testWallCol2({x:x,y:y,w:this.botPlayer.width,h:this.botPlayer.height});
+      // if (this.colWall != null && this.colWall[3].x != wallCollision[0].x && this.colWall[3].y != wallCollision[0].y) {
+      //   this.colWall = null;
+      // }
+      if (this.colWall !== null) {
+        switch (this.colWall[0]) {
+          case "left":
+            if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
+              this.colWall = null;
+            }
+            break;
+          case "right":
+            if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
+              this.colWall = null;
+            }
+            break;
+          case "top":
+            if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
+              this.colWall = null;
+            }
+            break;
+          case "bottom":
+            if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
+              this.colWall = null;
+            }
+            break;
+        }
+      }
+      if (wallCollision !== undefined && this.colWall !== null && (wallCollision.x !== this.colWall[3].x || wallCollision.y !== this.colWall[3].y || wallCollision[1] !== this.colWall[0])) {
+
+      }
+      if (wallCollision !== undefined && this.colWall == null) {
+        switch (wallCollision[1]) {
+          case "left":
+            playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+            sendData.hdt = 1/2;
+            this.colWall = [wallCollision[1],null,sendData.vdt*2,wallCollision[0]];
+            break;
+          case "right":
+            playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+            sendData.hdt = -1/2;
+            this.colWall = [wallCollision[1],null,sendData.vdt*2,wallCollision[0]];
+            break;
+          case "top":
+            playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+            sendData.vdt = 1/2;
+            this.colWall = [wallCollision[1],sendData.hdt*2,null,wallCollision[0]];
+            break;
+          case "bottom":
+            playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+            sendData.vdt = -1/2;
+            this.colWall = [wallCollision[1],sendData.hdt*2,null,wallCollision[0]];
+            break;
+        }
+
+      }
+      this.socket.emit("4",sendData);
+    }
+  }
+
   connectToServer() {
     this.socket = io.connect("http://" + this.data.ip + ":" + this.data.port, {
       reconnection: !0,
@@ -4739,7 +4911,6 @@ class Bot {
     this.socket.on("welcome", function(b, d) {
         b.name = self.playerName;
         b.classIndex = 1;
-        console.log(b,d);
         this.emit("gotit", b, d, Date.now(), !1);
     });
     this.socket.on("gameSetup", function(a, d, e) {
@@ -4747,14 +4918,36 @@ class Bot {
         if (d) {
           self.pIndex = a.you.index;
         }
-        this.emit("respawn");
+        self.botPlayer = a.you;
+        console.log("testBot respawned");
+        if (!self.alive) {self.colWall=null;this.emit("respawn");};
+        self.alive = true;
     });
     this.socket.on("3", function(a) {
       if (a.gID == self.pIndex) {
         console.log(self.playerName,"died");
+        self.alive = false;
+        self.colWall=null;
         this.emit("respawn");
       }
     });
+    this.socket.on("rsd", function(data) {
+  		if (data.length != 0) {
+  			var sample = data.toString().replace(/,/g, " ");
+  			var regex = /\b[\w']+(?:\s+[\w']+){0,5}/g;
+  			var playersData = sample.match(regex);
+
+  			for (let i = 0; i < playersData.length; i++) {
+  				data = playersData[i].split(" ").map(_ => Number(_));
+          if (data[1]==self.pIndex) {
+            self.botPlayer.oldX = self.botPlayer.x;
+            self.botPlayer.oldY = self.botPlayer.y;
+            self.botPlayer.x=data[2];
+            self.botPlayer.y=data[3];
+          }
+  			};
+  		}
+	  });
   }
   enterGame() {
     this.playerName = "TESTBOT"+Math.random().toFixed(3).slice(2);
@@ -4778,5 +4971,6 @@ class Bot {
       });
       this.socket.disconnect();
     }
+    clearInterval(this.moveInterval);
   }
 }
