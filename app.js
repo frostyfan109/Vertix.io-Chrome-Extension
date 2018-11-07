@@ -4709,7 +4709,7 @@ function createBots() {
   if (!hackCfg.bots) {
     return;
   }
-  for (var i=0;i<1;i++) {
+  for (var i=0;i<4;i++) {
     console.log("creating new bot");
     bots.push(new Bot({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName,player:player}));
   }
