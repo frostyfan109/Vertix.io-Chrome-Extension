@@ -116,6 +116,20 @@
 #reloadWrapper {
 	margin-top:0px !important;
 }
+#botsWrapper {
+	padding-left:12px;
+	transform:scale(.9);
+	border-left:2.5px solid var(--mdc-theme-secondary);
+}
+
+/* #botNum::-webkit-outer-spin-button,
+#botNum::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+#botNum {
+    -moz-appearance: textfield;
+} */
 
 /* #reloadWrapper:not([style*="display: none;"]) + * {
 	margin-top:7.5px;

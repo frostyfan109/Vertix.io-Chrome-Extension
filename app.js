@@ -595,11 +595,19 @@ Rectangle.prototype.intersectsLine = function(p1, p2) {
 }
 
 let testing = [[],[],[]];
-function testCol(data) {
+function testCol(data,barrels) {
   testing = [[],[],[]];
-  for (var i=0;i<gameMap.tiles.length;i++) {
-    let tile = gameMap.tiles[i];
-    if (!tile.wall || (hackCfg.globalLocations ? false : !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale))) { //optimized
+  let arr = (barrels == true ? gameMap.tiles.concat(gameMap.clutter) : gameMap.tiles);
+  for (var i=0;i<arr.length;i++) {
+    let tile = arr[i];
+    if (
+      (tile.active === undefined && !tile.wall) ||
+      // (tile.active !== undefined && !tile.active) ||
+      ((hackCfg.globalLocations || tile.type === "clutter") ? null : !canSee(tile.x-startX,tile.y-startY,mapTileScale,mapTileScale))
+    ) {
+      if (tile.type === "clutter") {
+        console.log(tile);
+      }
       continue;
     }
     let hyp = data[0];
@@ -624,16 +632,23 @@ function testCol(data) {
     let x2 = enemyPlayerCentroid.x;
     let y2 = enemyPlayerCentroid.y;
 
-    testing[0].push([tile.x-startX,tile.y-startY,tile.scale,tile.scale-data[2].height,tile]);
-    testing[1].push([x,y,x2,y2]);
+    let width = (tile.w !== undefined ? tile.w : tile.scale);
+    let height = (tile.h !== undefined ? tile.h : tile.scale);
+    if (barrels === undefined) {
+      testing[0].push([tile.x-startX,tile.y-startY,width,height-data[2].height,tile]);
+      testing[1].push([x,y,x2,y2]);
+    }
     // graph.fillStyle = "#0000ff";
     // graph.strokeStyle = "#0000ff";
     // graph.fillRect(tile.x-startX,tile.y-startY,tile.scale,tile.scale-player.height);
     //console.log(tile.x-startX,tile.y-startY,tile.scale,tile.scale-player.height);
     // graph.stroke();
-    var rect = new Rectangle(tile.x,tile.y,tile.scale,tile.scale-data[2].height);
+    if (tile.type !== "clutter") {
+      height-=data[2].height;
+    }
+    var rect = new Rectangle(tile.x,tile.y,width,height);
     line = {p1:new Point(x,y),p2:new Point(x2,y2)};
-    testing[2].push([line,myPlayer]);
+    barrels==true?null:testing[2].push([line,myPlayer]);
     let intersects = rect.intersectsLine(line.p1, line.p2);
     if (intersects) {
       return true;
@@ -1713,18 +1728,13 @@ function addRowToStatTable(a, b) {
             }))
         } else {
             var g = document.createElement("button")
-              , l = document.createTextNode(" NICE");
+              , l = document.createTextNode(" TARGET W/ BOTS");
             g.appendChild(l);
             g.setAttribute("type", "button");
             var m = a[f];
             g.tmpCont = m;
             g.onclick = function() {
-                c.focus();
-                likePlayerStat(m.pos);
-                for (var a = 0; a < buttonCount; ++a)
-                    document.getElementById("gameStatLikeButton" + a).setAttribute("class", "gameStatLikeButton");
-                currentLikeButton != this.tmpCont.uID ? (currentLikeButton = this.tmpCont.uID,
-                this.setAttribute("class", "gameStatLikeButtonA")) : currentLikeButton = ""
+                console.log("foo");
             }
             ;
             g.setAttribute("id", "gameStatLikeButton" + buttonCount);
@@ -4709,7 +4719,7 @@ function createBots() {
   if (!hackCfg.bots) {
     return;
   }
-  for (var i=0;i<4;i++) {
+  for (var i=0;i<hackCfg.botNo;i++) {
     console.log("creating new bot");
     bots.push(new Bot({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName,player:player}));
   }
@@ -4733,6 +4743,33 @@ function testWallCol(x,y,width,height) {
 
     if (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y) {
       return tile;
+    }
+  }
+}
+
+function testClutterCol(r1) {
+  for (var i=0;i<gameMap.clutter.length;i++) {
+    let tile = gameMap.clutter[i];
+    if (!tile.active) {
+      continue;
+    }
+    var r2 = {x:tile.x,y:tile.y,w:tile.w,h:tile.h};
+    var dx=(r1.x+r1.w/2)-(r2.x+r2.w/2);
+    var dy=(r1.y+r1.h/2)-(r2.y+r2.h/2);
+    var width=(r1.w+r2.w)/2;
+    var height=(r1.h+r2.h)/2;
+    var crossWidth=width*dy;
+    var crossHeight=height*dx;
+    var collision;
+    if(Math.abs(dx)<=width && Math.abs(dy)<=height){
+        if(crossWidth>crossHeight){
+            collision=(crossWidth>(-crossHeight))?'bottom':'left';
+        }else{
+            collision=(crossWidth>-(crossHeight))?'right':'top';
+        }
+    }
+    if (collision !== undefined) {
+      return([tile,collision]);
     }
   }
 }
@@ -4771,6 +4808,7 @@ class Bot {
     this.alive = false;
     this.botPlayer = null;
     this.colWall = null;
+    this.barrelCol = null;
     this.connectToServer();
     let self = this;
     this.moveInterval = setInterval(function(){self.move()},16.6);
@@ -4791,8 +4829,9 @@ class Bot {
       playerY > botY ? vdt=1 : vdt=-1;
       if (this.colWall != null) {
         if (botX == this.botPlayer.oldX && botY == this.botPlayer.oldY) {
-          if (this.colWall[1] != null) {this.colWall[1]*=-1};
-          if (this.colWall[2] != null) {this.colWall[2]*=-1};
+          console.log("stuck");
+          //if (this.colWall[1] != null) {this.colWall[1]*=-1;} else {hdt*=-1}
+          //if (this.colWall[2] != null) {this.colWall[2]*=-1;} else {vdt*=-1}
         }
         // switch (this.colWall[1]) {
         //   case "left":
@@ -4808,8 +4847,8 @@ class Bot {
         //     playerX > botX ? hdt = 1/2: hdt = -1/2;
         //     break;
         // }
-        if (this.colWall[1] != null) {hdt = this.colWall[1]};
-        if (this.colWall[2] != null) {vdt = this.colWall[2]};
+        if (this.colWall[1] != null) {hdt = this.colWall[1];}
+        if (this.colWall[2] != null) {vdt = this.colWall[2];}
       }
 
       let sendData = {
@@ -4836,59 +4875,155 @@ class Bot {
       //   sendData.vdt*=-1;
       // }
       let wallCollision = testWallCol2({x:x,y:y,w:this.botPlayer.width,h:this.botPlayer.height});
+      let barrelCollision = testClutterCol({x:x,y:y,w:this.botPlayer.width,h:this.botPlayer.height});
+      if (barrelCollision !== undefined) {
+        if (this.barrelCol === null || this.barrelCol[1].x != barrelCollision[1].x && this.barrelCol[1].y != barrelCollision[1].y) {
+          this.barrelCol = barrelCollision;
+        }
+        if (this.colWall !== null) {
+        switch (this.colWall[0]) {
+          case "left":
+            sendData.hdt = -1/2;
+            break;
+          case "right":
+            sendData.hdt = 1/2;
+            break;
+          case "top":
+            sendData.vdt = -1/2;
+            break;
+          case "bottom":
+            sendData.vdt = 1/2;
+            break;
+        }
+        }
+      }
+      else {
+        this.barrelCol = null;
+      }
       // if (this.colWall != null && this.colWall[3].x != wallCollision[0].x && this.colWall[3].y != wallCollision[0].y) {
       //   this.colWall = null;
       // }
-      if (this.colWall !== null) {
-        switch (this.colWall[0]) {
-          case "left":
-            if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
-              this.colWall = null;
-            }
-            break;
-          case "right":
-            if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
-              this.colWall = null;
-            }
-            break;
-          case "top":
-            if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
-              this.colWall = null;
-            }
-            break;
-          case "bottom":
-            if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
-              this.colWall = null;
-            }
-            break;
-        }
-      }
-      if (wallCollision !== undefined && this.colWall !== null && (wallCollision.x !== this.colWall[3].x || wallCollision.y !== this.colWall[3].y || wallCollision[1] !== this.colWall[0])) {
 
+      // if (this.colWall !== null) {
+      //   switch (this.colWall[0]) {
+      //     case "left":
+      //       if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //     case "right":
+      //       if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //     case "top":
+      //       if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //     case "bottom":
+      //       if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //   }
+      // }
+      if (!this.collisionTest() && this.barrelCol === null) {
+        this.colWall = null;
+        console.log("clear");
+      }
+      if (wallCollision !== undefined && this.colWall !== null && ((wallCollision.x !== this.colWall[3].x || wallCollision.y !== this.colWall[3].y) || wallCollision[1] !== this.colWall[0])) {
+        this.colWall = null;
+        console.log("other");
       }
       if (wallCollision !== undefined && this.colWall == null) {
+        // switch (wallCollision[1]) {
+        //   case "left":
+        //     playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+        //     sendData.hdt = -1/2;
+        //     this.colWall = [wallCollision[1],0,sendData.vdt*2,wallCollision[0]];
+        //     break;
+        //   case "right":
+        //     playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+        //     sendData.hdt = 1/2;
+        //     this.colWall = [wallCollision[1],0,sendData.vdt*2,wallCollision[0]];
+        //     break;
+        //   case "top":
+        //     playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+        //     sendData.vdt = -1/2;
+        //     this.colWall = [wallCollision[1],sendData.hdt*2,0,wallCollision[0]];
+        //     break;
+        //   case "bottom":
+        //     playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+        //     sendData.vdt = 1/2;
+        //     this.colWall = [wallCollision[1],sendData.hdt*2,0,wallCollision[0]];
+        //     break;
+        // }
+        let t = wallCollision[0];
+        let direction = null;
         switch (wallCollision[1]) {
           case "left":
-            playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
-            sendData.hdt = 1/2;
-            this.colWall = [wallCollision[1],null,sendData.vdt*2,wallCollision[0]];
+            //playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+            sendData.hdt = -1/2;
+            if (playerY > botY && !t.bottom) {
+              direction = 1/2;
+            }
+            else if (!t.top) {
+              direction = -1/2;
+            }
+            else {
+              playerY > botY ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.vdt = direction;
+            this.colWall = [wallCollision[1],0,direction,wallCollision[0]];
             break;
           case "right":
-            playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
-            sendData.hdt = -1/2;
-            this.colWall = [wallCollision[1],null,sendData.vdt*2,wallCollision[0]];
+            //playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+            sendData.hdt = 1/2;
+            if (playerY > botY && !t.bottom) {
+              direction = 1/2;
+            }
+            else if (!t.top) {
+              direction = -1/2;
+            }
+            else {
+              playerY > botY ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.vdt = direction;
+            this.colWall = [wallCollision[1],0,direction,wallCollision[0]];
             break;
           case "top":
-            playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
-            sendData.vdt = 1/2;
-            this.colWall = [wallCollision[1],sendData.hdt*2,null,wallCollision[0]];
+            //playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+            sendData.vdt = -1/2;
+            if (playerX > botX && !t.right) {
+              direction = 1/2;
+            }
+            else if (!t.left) {
+              direction = -1/2;
+            }
+            else {
+              playerX > botX ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.hdt = direction;
+            this.colWall = [wallCollision[1],direction,0,wallCollision[0]];
             break;
           case "bottom":
-            playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
-            sendData.vdt = -1/2;
-            this.colWall = [wallCollision[1],sendData.hdt*2,null,wallCollision[0]];
+            //playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+            sendData.vdt = 1/2;
+            if (playerX > botX && !t.right) {
+              direction = 1/2;
+            }
+            else if (!t.left) {
+              direction = -1/2;
+            }
+            else {
+              playerX > botX ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.hdt = direction;
+            this.colWall = [wallCollision[1],direction,0,wallCollision[0]];
             break;
         }
+        console.log(wallCollision[1]);
 
       }
       this.socket.emit("4",sendData);
@@ -4972,5 +5107,33 @@ class Bot {
       this.socket.disconnect();
     }
     clearInterval(this.moveInterval);
+  }
+  collisionTest() {
+    let player = this.data.player;
+    let myPlayer = this.botPlayer;
+    let myPlayerCentroid = {"x":myPlayer.x,"y":myPlayer.y-(myPlayer.height/2)};
+    let playerCentroid = {"x":player.x,"y":player.y-(player.height/2)};
+    let slope;
+    let x;
+    let y;
+    let hyp;
+    let radians;
+
+    let a = myPlayer;
+    var d = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]
+      , d = (target.f + mathPI + d).round(2)
+      , e = getCurrentWeapon(a).holdDist + getCurrentWeapon(a).bDist
+      , f = mathRound(a.x + e * mathCOS(d))
+      , e = mathRound(a.y - getCurrentWeapon(a).yOffset - a.jumpY + e * mathSIN(d));
+
+    slope = [(e-playerCentroid.y),(f-playerCentroid.x)];
+
+    x = slope[1];
+    y = slope[0];
+    hyp = Math.sqrt((slope[0]*slope[0])+(slope[1]*slope[1])); //distance
+
+    radians = Math.atan2(y,x);
+
+    return testCol([hyp,radians,myPlayer,playerCentroid]);
   }
 }
