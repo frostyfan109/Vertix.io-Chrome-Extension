@@ -1,4 +1,4 @@
-#hackPanel {
+#hackPanel,#botUI {
 	overflow-y: auto;
 	max-height:450px;
 	width: 32%;
@@ -16,6 +16,39 @@
 	pointer-events: auto;
 	-webkit-box-shadow: inset 0 -5px #e0e0e0;
 	box-shadow: inset 0 -5px #e0e0e0;
+}
+
+#hackPanel[gamestyle] {
+	display:none;
+}
+
+#botUI {
+	position:relative;
+	height:300px !important;
+	width:200px !important;
+	float:none;
+	top:10px;
+	margin:0;
+	border:5px solid gray;
+	padding:15px;
+	/* transform:scale(.40) translateX(-75%) translateY(75%); */
+}
+
+#botUI * {
+	font-size:8px;
+}
+
+#targetTable {
+	width:100%;
+	padding-left:7.5px;
+	margin-top:7.5px;
+	border-left:2px solid lightgray;
+	border-collapse:separate;
+	border-spacing:5px;
+}
+
+#targetTable td {
+	padding:0;
 }
 
 @keyframes minimize {
@@ -116,6 +149,7 @@
 #reloadWrapper {
 	margin-top:0px !important;
 }
+
 #botsWrapper {
 	padding-left:12px;
 	transform:scale(.9);

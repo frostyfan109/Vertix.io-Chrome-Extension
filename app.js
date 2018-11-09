@@ -59,6 +59,7 @@ function enterGame(a) {
     screenWidth = window.innerWidth;
     screenHeight = window.innerHeight;
     document.getElementById("startMenuWrapper").style.display = "none";
+    $("#botUI").show();
     room || (socket.emit("create"));
     socket.emit("respawn");
     if (bots.length === 0) {
@@ -1513,6 +1514,7 @@ function setupSocket(a) {
             } catch (h) {}
             window.setTimeout(function() {
                 gameOver || (document.getElementById("startMenuWrapper").style.display = "flex",
+                $("#botUI").hide(),
                 document.getElementById("linkBox").style.display = "block")
             }, 1300);
             playSound("death1", player.x, player.y);
@@ -1548,6 +1550,7 @@ function setupSocket(a) {
         try {
             gameOver = !0,
             document.getElementById("startMenuWrapper").style.display = "none",
+            $("#botUI").show();
             showStatTable(d, e, a, !1, f, !0),
             startSoundTrack(1)
         } catch (h) {
@@ -2403,6 +2406,35 @@ function doGame(a) {
     //updateScreenShake(a);
     if (hackCfg.spins !== false) {
       target.dOffset = 0;
+    }
+    let struct = makeStruct();
+    let ids = [];
+    let filtered = [];
+    $("#targetTable").find("tbody").children().each(function() {
+      ids.push($(this).attr('pid'));
+    })
+    for (var i=0;i<struct.length;i++) {
+      let tr = struct[i];
+      if (!ids.includes(tr.attr("pid"))) {
+        filtered.push(tr);
+      }
+    }
+    if (filtered.length !== 0 || struct.length !== $("#targetTable").find("tbody").children().length) {
+      if (hackCfg.botTarget !== undefined) {
+        let found = false;
+        for (var i=0;i<gameObjects.length;i++) {
+          if (gameObjects[i].type == "player" && gameObjects[i].id == hackCfg.botTarget[1]) {
+            found = true;
+          }
+        }
+        if (!found) {
+          hackCfg.botTarget = undefined;
+          console.log("target left");
+          $("#targetText").html("None&nbsp;<span id='fadeInfo'>(target left)</span>");
+          setInterval(function(){$("#fadeInfo").animate({opacity:0},1000);},1500);
+        }
+      }
+      $("#targetTable").html(struct);
     }
     null != target && (startX = player.x - maxScreenWidth / 2 + -screenSkX + target.dOffset * mathCOS(target.f + mathPI),
     startY = player.y - 20 - maxScreenHeight / 2 + -screenSkY + target.dOffset * mathSIN(target.f + mathPI),
@@ -4801,6 +4833,69 @@ function testWallCol2(r1){
   }
 }
 
+function getGlobalCoords(player) {
+  for (var i=0;i<playerCoords.length;i++) {
+    if (playerCoords[i].id == player.id) {
+      return playerCoords[i];
+    }
+  }
+}
+
+function getPlayer(info) {
+  let name = info[0];
+  let id = info[1];
+  for (var i=0;i<gameObjects.length;i++) {
+    let obj = gameObjects[i];
+    if (id != null) {
+      if (obj.id == id) {
+        return getGlobalCoords(obj);
+      }
+    }
+    else {
+      if (obj.name == name) {
+        return getGlobalCoords(obj);
+      }
+    }
+  }
+}
+function selectTarget(btn) {
+  let name = $(btn).parent().parent().children().first().text();
+  let id = $(btn).parent().parent().attr('pid');
+  hackCfg.botTarget = [name,id];
+  $("#targetText").text(name);
+}
+
+function makeStruct() {
+  let t = [];
+  let myPlayer = player;
+  for (var i=0;i<gameObjects.length;i++) {
+    let player = gameObjects[i];
+    if (player.type !== "player" || player.id === workerId || (player.name!==undefined && player.name.includes('​'))) { //0 width space for faster identification
+      continue;
+    }
+    t.push($(`
+    <tr pID='${player.id}'>
+      <td style='color:${myPlayer.id == player.id?"#000000":"#ff0000"}'>${player.name}</td>
+      <td>
+        <button onclick='selectTarget(this)'>Target</button>
+      </td>
+    </tr>`));
+  }
+  return t;
+}
+
+let botUI = $(`
+  <div id='botUI'>
+    <p style="text-align:center;margin:0;margin-bottom:10px;;font-size:10px;text-decoration:underline;" id="botTitle">Bot Interface</p>
+    <span>Target:&nbsp;</span><span style='color:${hackCfg.botTarget!==undefined?'green':'red'};' id='targetText'>${hackCfg.botTarget!==undefined?hackCfg.botTarget[0]:'None'}</span>
+    <table id='targetTable'>
+    </table>
+  </div>
+  <p id='error' style='position:relative;top:10px;width:200px;text-align:center;color:red;font-size:8px;'></p>`
+);
+$("#statContainer2").append(botUI);
+$("#botUI").hide();
+let error = "";
 class Bot {
   constructor(data) {
     this.data = data;
@@ -4809,17 +4904,57 @@ class Bot {
     this.botPlayer = null;
     this.colWall = null;
     this.barrelCol = null;
+    this.lastShot = null;
     this.connectToServer();
     let self = this;
-    this.moveInterval = setInterval(function(){self.move()},16.6);
+    this.moveInterval = setInterval(function(){hackCfg.botTarget!==undefined&&hackCfg.botTarget[0]!==null?(self.move(),self.aimShoot()):null;},16.6);
+  }
+
+  aimShoot() {
+    let myPlayer = this.botPlayer;
+    let player = getPlayer(hackCfg.botTarget);
+    if (player === undefined) {
+      return;
+    }
+    let myPlayerCentroid = {"x":myPlayer.x,"y":myPlayer.y-(myPlayer.height/2)};
+    let playerCentroid = {"x":player.x,"y":player.y-(player.height/2)};
+    let slope;
+    let x;
+    let y;
+    let hyp;
+    let radians;
+
+    let a = myPlayer
+    var d = getCurrentWeapon(a).spread[getCurrentWeapon(a).spreadIndex]
+      , d = (target.f + mathPI + d).round(2)
+      , e = getCurrentWeapon(a).holdDist + getCurrentWeapon(a).bDist
+      , f = mathRound(a.x + e * mathCOS(d))
+      , e = mathRound(a.y - getCurrentWeapon(a).yOffset - a.jumpY + e * mathSIN(d));
+
+    slope = [(e-playerCentroid.y),(f-playerCentroid.x)];
+    x = slope[1];
+    y = slope[0];
+    hyp = Math.sqrt((slope[0]*slope[0])+(slope[1]*slope[1]));
+    radians = Math.atan2(y,x);
+    (this.lastShot == null || (this.lastShot !== null && Date.now()-this.lastShot >= 100)) && !this.collisionTest() ? (this.socket.emit("1", myPlayer.x, myPlayer.y, 0, radians, hyp, Date.now()),this.lastShot = Date.now(),this.socket.emit("r")) : null;
+
   }
 
   move() {
     if (this.alive){
       var hdt;
       var vdt;
-      let playerX = this.data.player.x;
-      let playerY = this.data.player.y;
+      var player = getPlayer(hackCfg.botTarget);
+      if (getPlayer(hackCfg.botTarget) === undefined) {
+        error = "Global location finder not working"
+        $("#error").text(error);
+        return;
+      }
+      else if (error === "Global location finder not working") {
+        $("#error").text("");
+      }
+      let playerX = player.x;
+      let playerY = player.y;
       if (isNaN(playerX) || isNaN(playerY)) {
         return;
       }
@@ -5045,13 +5180,26 @@ class Bot {
     let self = this;
     this.socket.on("welcome", function(b, d) {
         b.name = self.playerName;
-        b.classIndex = 1;
+        b.classIndex = 0;
         this.emit("gotit", b, d, Date.now(), !1);
     });
     this.socket.on("gameSetup", function(a, d, e) {
         a = JSON.parse(a);
         if (d) {
           self.pIndex = a.you.index;
+        }
+        let playerInRoom = false;
+        if (a.usersInRoom !== null) {
+          for (var i=0;i<a.usersInRoom.length;i++) {
+            if (a.usersInRoom[i].id == player.id) {
+                playerInRoom = true;
+            }
+          }
+          if (!playerInRoom) {
+            console.log("wrong room");
+            self.disconnect();
+            bots.push(new Bot({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName,player:player}));
+          }
         }
         self.botPlayer = a.you;
         console.log("testBot respawned");
@@ -5109,7 +5257,7 @@ class Bot {
     clearInterval(this.moveInterval);
   }
   collisionTest() {
-    let player = this.data.player;
+    let player = getPlayer(hackCfg.botTarget);
     let myPlayer = this.botPlayer;
     let myPlayerCentroid = {"x":myPlayer.x,"y":myPlayer.y-(myPlayer.height/2)};
     let playerCentroid = {"x":player.x,"y":player.y-(player.height/2)};

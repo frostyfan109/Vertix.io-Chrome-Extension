@@ -45,6 +45,8 @@ function startGame(a) {
   //startingGame || changingLobby || (startingGame = !0,
   playerName = pName.replace(/(<([^>]+)>)/ig, "").substring(0, 25),
   playerName = playerName.slice(0,connections) + playerName.charAt(connections).toUpperCase() + playerName.slice(connections+1,playerName.length),
+  playerName = '​'+playerName, //0 width space for identification,
+  playerName === '​' ? playerName+='UNKNOWN' : null,
   enterGame(a);
 }
 function enterGame(a) {
@@ -115,7 +117,8 @@ function setupSocket(a) {
               socket.close();
             });
             socket.disconnect();
-            setTimeout(function(){conn()},50);
+            // setTimeout(function(){conn()},50);
+            conn();
             return;
             gameMode = gameMap.gameMode;
             "blue" == a.you.team ? document.getElementById("gameModeText").innerHTML = gameMode.desc2 : document.getElementById("gameModeText").innerHTML = gameMode.desc1;
@@ -144,7 +147,7 @@ function conn() {
     connectToServer();
   }
   else {
-    setTimeout(function(){conn()},100);
+    setTimeout(function(){conn()},50);
   }
 }
 $(document).ready(function() {

@@ -56,7 +56,10 @@ function updateCfg(key,val) {
   if (void 0 !== key && void 0 !== val) {
     hackCfg[key] = val;
   }
+  let targ = hackCfg.botTarget;
+  delete hackCfg.botTarget;
   chrome.storage.sync.set({"config":hackCfg},function() {console.log("updated config");});
+  hackCfg.botTarget = targ;
   scriptTag.text = "var hackCfg="+JSON.stringify(hackCfg)+";";
   $(scriptTag).remove();
   $("head").append(scriptTag);
@@ -111,24 +114,16 @@ chrome.storage.sync.get(['config'],function(data) {
     updateCfg("autoFire",state);
   });
 
-  let botSwitch = eSwitch("Bots",con,hackCfg.bots,function(state) {
+  let botSwitch = eSwitch("On/Off",$("#botUI"),hackCfg.bots,function(state) {
     updateCfg("bots",state);
   });
-  let botsWrapper = $(`
-  <div id="botsWrapper">
+  botSwitch[2].detach().insertAfter("#botTitle");
+  botSwitch[0].css("transform","scale(.75) translate(-25%,25%)");
+  botSwitch[2].find("label").css("margin-left","-5px");
+  botSwitch[2].css("margin-left","2.5px");
 
-    <span>Number of bots:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:10%;' id='botNum' maxlength='1' type='number'></input>
-    <br>
-    <span>Target:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:70%;' id='target'></input>
-    <br>
+  $(`<span>Number of bots:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:15%;' id='botNum' maxlength='1' type='number'></input>`).insertAfter(botSwitch[2]);
 
-  </div>`);
-  con.append(botsWrapper);
-  $("#botsWrapper > *").css("margin-bottom","10px");
-  let kdSwitch = eSwitch("K/D Farmer",botsWrapper,hackCfg.kdFarm,function(state) {
-    updateCfg("kdFarm",state);
-  });
-  $("#target").val("");
   $("#botNum").val(hackCfg.botNo);
   $('#botNum').on('input', function(e){
     if (e.keyCode !== 46 && e.keyCode !== 8) {
@@ -141,8 +136,51 @@ chrome.storage.sync.get(['config'],function(data) {
          e.preventDefault();
        }
     }
-  this.value !== "" ? (hackCfg.botNo = parseInt(this.value),updateCfg()) : null;
-});
+    this.value !== "" ? (hackCfg.botNo = parseInt(this.value),updateCfg()) : null;
+  });
+
+  /*
+  let botsWrapper = $(`
+  <div id="botsWrapper">
+
+    <span>Number of bots:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:10%;' id='botNum' maxlength='1' type='number'></input>
+    <br>
+
+  </div>`);
+  // <div id="botsWrapper">
+  //
+  //   <span>Number of bots:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:10%;' id='botNum' maxlength='1' type='number'></input>
+  //   <br>
+  //   <span>Target:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:70%;' id='target'></input>
+  //   <br>
+  //
+  // </div>`);
+  con.append(botsWrapper);
+  $("#botsWrapper > *").css("margin-bottom","10px");
+  let kdSwitch = eSwitch("K/D Farmer",botsWrapper,hackCfg.kdFarm,function(state) {
+    updateCfg("kdFarm",state);
+  });
+  hackCfg.botTarget = [null,null];
+  updateCfg();
+  $("#target").val("");
+  $("#target").on('input',function(e) {
+    hackCfg.botTarget = [this.value,null];
+    updateCfg();
+  })
+  $("#botNum").val(hackCfg.botNo);
+  $('#botNum').on('input', function(e){
+    if (e.keyCode !== 46 && e.keyCode !== 8) {
+       if ($(this).val() > 5) {
+         this.value = 5;
+         e.preventDefault();
+       }
+       if ($(this).val() < 0) {
+         this.value = 0;
+         e.preventDefault();
+       }
+    }
+    this.value !== "" ? (hackCfg.botNo = parseInt(this.value),updateCfg()) : null;
+  });
   eToggle(botSwitch[0].slice(-1),hackCfg.expand["bots"],function(toggle,state) {
     if (state) {
       toggle.removeClass("maximize minimize");
@@ -161,11 +199,12 @@ chrome.storage.sync.get(['config'],function(data) {
     hackCfg.expand["bots"] = state;
     updateCfg();
   });
+  */
 
   let globalLocations = eSwitch("Global Locations",con,hackCfg.globalLocations,function(state) {
     updateCfg("globalLocations",state);
   });
-  globalLocations[2].append("<div class='info' style='margin-top:6px;'>Runs a second account that routinely rejoins the game to obtain locations</div>");
+  globalLocations[2].append("<div class='info' style='margin-top:6px;'>Runs a second account that routinely rejoins the game to obtain locations<br><span style='font-size:10px;'>(Required when running bots)</span></div>");
 
   let speedHacks = eSwitch("Speed Hacks",con,hackCfg.speedHacks,function(state) {
     updateCfg("speedHacks",state);
