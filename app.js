@@ -4903,16 +4903,22 @@ class Bot {
     this.alive = false;
     this.botPlayer = null;
     this.colWall = null;
+    this.wander = false;
     this.barrelCol = null;
     this.lastShot = null;
     this.connectToServer();
     let self = this;
-    this.moveInterval = setInterval(function(){hackCfg.botTarget!==undefined&&hackCfg.botTarget[0]!==null?(self.move(),self.aimShoot()):null;},16.6);
+    this.moveInterval = setInterval(function(){(hackCfg.botTarget!==undefined&&hackCfg.botTarget[0]!==null)||self.wander?(self.move(),self.aimShoot()):null;},16.6);
   }
 
   aimShoot() {
     let myPlayer = this.botPlayer;
-    let player = getPlayer(hackCfg.botTarget);
+    let player;
+    for (var i=0;i<gameObjects.length;i++) {
+      if (gameObjects[i].id == hackCfg.botTarget[1]) {
+        player = gameObjects[i];
+      }
+    }
     if (player === undefined) {
       return;
     }
@@ -4945,7 +4951,7 @@ class Bot {
       var hdt;
       var vdt;
       var player = getPlayer(hackCfg.botTarget);
-      if (getPlayer(hackCfg.botTarget) === undefined) {
+      if (getPlayer(hackCfg.botTarget) === undefined && !this.wander) {
         error = "Global location finder not working"
         $("#error").text(error);
         return;
@@ -4953,8 +4959,16 @@ class Bot {
       else if (error === "Global location finder not working") {
         $("#error").text("");
       }
-      let playerX = player.x;
-      let playerY = player.y;
+      let playerX;
+      let playerY;
+      if (this.wander) {
+        playerX = (Math.random() > .5 ? playerX = 10000 : playerX = -10000);
+        playerY = (Math.random() > .5 ? playerY = 10000 : playerY = -10000);
+      }
+      else {
+        playerX = player.x;
+        playerY = player.y;
+      }
       if (isNaN(playerX) || isNaN(playerY)) {
         return;
       }
