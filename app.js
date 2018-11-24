@@ -2243,6 +2243,29 @@ function updateGameLoop() {
     0 != e && (b /= e,
     d /= e);
 
+    if (!hackCfg.bots && bots.length !== 0) {
+      for (var i=0;i<bots.length;i++) {
+        bots[i].disconnect();
+      }
+      bots = [];
+    }
+    if (bots.length !== hackCfg.botNo && !gameOver && !player.dead && hackCfg.bots) {
+      let diff = hackCfg.botNo - bots.length
+      console.log(hackCfg.botNo,bots.length);
+      if (diff > 0) {
+        for (var i=0;i<diff;i++) {
+          if (cIp != null || port != null) {
+            bots.push(new Bot({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName,player:player}));
+          }
+        }
+      }
+      else {
+        for (var i=Math.abs(diff)-1;i>=0;--i) {
+          bots[i].disconnect();
+          bots.splice(i,1);
+        }
+      }
+    }
 
     if (hackCfg.spins !== false) {
       let radPF = degToRad(hackCfg.spins*(360/currentFPS));
@@ -4757,6 +4780,15 @@ function createBots() {
   }
 }
 
+function removeBot(id) {
+  $.each(bots, function(i){
+    if(bots[i].id === id) {
+        bots.splice(i,1);
+        return false;
+    }
+  });
+}
+
 function disconnectBots() {
   for (var i=0;i<bots.length;i++) {
     bots[i].disconnect();
@@ -4896,6 +4928,7 @@ let botUI = $(`
 $("#statContainer2").append(botUI);
 $("#botUI").hide();
 let error = "";
+let botIds = 0;
 class Bot {
   constructor(data) {
     this.data = data;
@@ -4906,12 +4939,17 @@ class Bot {
     this.wander = false;
     this.barrelCol = null;
     this.lastShot = null;
+    this.inputNumber = 0;
+    this.id = botIds++;
     this.connectToServer();
     let self = this;
-    this.moveInterval = setInterval(function(){(hackCfg.botTarget!==undefined&&hackCfg.botTarget[0]!==null)||self.wander?(self.move(),self.aimShoot()):null;},16.6);
+    this.moveInterval = setInterval(function(){(((hackCfg.botTarget!==undefined&&hackCfg.botTarget[0]!==null) || hackCfg.kdFarm))||self.wander?(self.move(player),self.aimShoot()):null;},16.6);
   }
 
   aimShoot() {
+    if (hackCfg.kdFarm) {
+      return;
+    }
     let myPlayer = this.botPlayer;
     let player;
     for (var i=0;i<gameObjects.length;i++) {
@@ -4920,6 +4958,9 @@ class Bot {
       }
     }
     if (player === undefined) {
+      return;
+    }
+    if (myPlayer === null) {
       return;
     }
     let myPlayerCentroid = {"x":myPlayer.x,"y":myPlayer.y-(myPlayer.height/2)};
@@ -4946,18 +4987,23 @@ class Bot {
 
   }
 
-  move() {
+  move(actualPlayer) {
     if (this.alive){
       var hdt;
       var vdt;
-      var player = getPlayer(hackCfg.botTarget);
-      if (getPlayer(hackCfg.botTarget) === undefined && !this.wander) {
-        error = "Global location finder not working"
-        $("#error").text(error);
-        return;
+      if (hackCfg.kdFarm) {
+        var player = actualPlayer;
       }
-      else if (error === "Global location finder not working") {
-        $("#error").text("");
+      else {
+        var player = getPlayer(hackCfg.botTarget);
+        if ((getPlayer(hackCfg.botTarget) === undefined || getPlayer(hackCfg.botTarget) === null) && !this.wander) {
+          error = "Global location finder not working"
+          $("#error").text(error);
+          return;
+        }
+        else if (error === "Global location finder not working") {
+          $("#error").text("");
+        }
       }
       let playerX;
       let playerY;
@@ -4979,8 +5025,8 @@ class Bot {
       if (this.colWall != null) {
         if (botX == this.botPlayer.oldX && botY == this.botPlayer.oldY) {
           console.log("stuck");
-          //if (this.colWall[1] != null) {this.colWall[1]*=-1;} else {hdt*=-1}
-          //if (this.colWall[2] != null) {this.colWall[2]*=-1;} else {vdt*=-1}
+          // if (this.colWall[1] != null) {this.colWall[1]*=-1;} else {hdt*=-1}
+          // if (this.colWall[2] != null) {this.colWall[2]*=-1;} else {vdt*=-1}
         }
         // switch (this.colWall[1]) {
         //   case "left":
@@ -4999,15 +5045,15 @@ class Bot {
         if (this.colWall[1] != null) {hdt = this.colWall[1];}
         if (this.colWall[2] != null) {vdt = this.colWall[2];}
       }
-
+      // console.log(inputNumber);
       let sendData = {
           hdt: hdt / 2,
           vdt: vdt / 2,
-          ts: currentTime,
-          isn: inputNumber,
+          ts: true?currentTime:currentTime+(inputNumber*60),
+          isn: this.inputNumber,
           s: 0
       }
-      sendData["delta"] = 100;
+      sendData["delta"] = 300;
       var a,b,e;
       a = sendData.hdt,
       b = sendData.vdt,
@@ -5077,13 +5123,13 @@ class Bot {
       //       break;
       //   }
       // }
-      if (!this.collisionTest() && this.barrelCol === null) {
+      if (!this.collisionTest(actualPlayer) && this.barrelCol === null) {
         this.colWall = null;
-        console.log("clear");
+        // console.log("clear");
       }
       if (wallCollision !== undefined && this.colWall !== null && ((wallCollision.x !== this.colWall[3].x || wallCollision.y !== this.colWall[3].y) || wallCollision[1] !== this.colWall[0])) {
         this.colWall = null;
-        console.log("other");
+        // console.log("other");
       }
       if (wallCollision !== undefined && this.colWall == null) {
         // switch (wallCollision[1]) {
@@ -5172,10 +5218,11 @@ class Bot {
             this.colWall = [wallCollision[1],direction,0,wallCollision[0]];
             break;
         }
-        console.log(wallCollision[1]);
+        // console.log(wallCollision[1]);
 
       }
       this.socket.emit("4",sendData);
+      this.inputNumber++;
     }
   }
 
@@ -5211,8 +5258,8 @@ class Bot {
           }
           if (!playerInRoom) {
             console.log("wrong room");
+            removeBot(self.id);
             self.disconnect();
-            bots.push(new Bot({ip:cIp.toString(),port:cPort.toString(),swapS:cSwap,pName:playerName===undefined ? "" : playerName,player:player}));
           }
         }
         self.botPlayer = a.you;
@@ -5270,9 +5317,21 @@ class Bot {
     }
     clearInterval(this.moveInterval);
   }
-  collisionTest() {
-    let player = getPlayer(hackCfg.botTarget);
+  collisionTest(actualPlayer) {
+
+    let player;
+    if (hackCfg.kdFarm) {
+      player = actualPlayer;
+    }
+    else {
+      player = getPlayer(hackCfg.botTarget);
+    }
     let myPlayer = this.botPlayer;
+    if (player === undefined || player === null) {
+      error = "Global location finder not working"
+      $("#error").text(error);
+      return;
+    }
     let myPlayerCentroid = {"x":myPlayer.x,"y":myPlayer.y-(myPlayer.height/2)};
     let playerCentroid = {"x":player.x,"y":player.y-(player.height/2)};
     let slope;

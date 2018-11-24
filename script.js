@@ -72,7 +72,7 @@ function loadPanel(){
 chrome.storage.sync.get(['config'],function(data) {
   if ($.isEmptyObject(data)) {
     hackCfg =
-      {"aimhacks":true,"botNo":4,"kdFarm":false,"bots":false,"globalLocations":true,"noRecoil":false,"hideAimbot":true,"autoFire":true,"speedHacks":true,"collisionOutlines":true,"mouseAssistance":false,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":true,"bots":true},"locationDrawer":true,"settings":
+      {"aimhacks":true,"botNo":4,"kdFarm":false,"bots":false,"kdFarm":false,"globalLocations":true,"noRecoil":false,"hideAimbot":true,"autoFire":true,"speedHacks":true,"collisionOutlines":true,"mouseAssistance":false,"spins":false,"spinsOld":0,"infiniteAmmo":1,"infiniteAmmoOld":1,"adblocker":true,"expand":{"locationDrawer":true,"ammo":true,"bots":true},"locationDrawer":true,"settings":
         {"KD":[true,"#000000"],"health":[true,"#000000"],"name":[false,"#000000"],"dead":[false,"#000000"],"room":[false,"#000000"],"maxHealth":[false,"#000000"],"id":[false,"#000000"],"likes":[false,"#000000"],"deaths":[false,"#000000"],"kills":[false,"#000000"],"totalDamage":[false,"#000000"],"totalHealing":[false,"#000000"],"totalGoals":[false,"#000000"],"score":[false,"#000000"],"x":[false,"#000000"],"xSpeed":[false,"#000000"],"y":[false,"#000000"],"ySpeed":[false,"#000000"],"angle":[false,"#000000"],"weapons":[false,"#000000"],"currentWeapon":[false,"#000000"],"bulletIndex":[false,"#000000"],"spawnProtection":[false,"#000000"],"team":[false,"#000000"],"speed":[false,"#000000"],"jumpCountdown":[false,"#000000"],"jumpDelta":[false,"#000000"],"jumpStrength":[false,"#000000"],"gravityStrength":[false,"#000000"],"frameCountdown":[false,"#000000"],"type":[false,"#000000"],"onScreen":[false,"#000000"],"isn":[false,"#000000"]}
       }
     chrome.storage.sync.set({"config":hackCfg});
@@ -117,12 +117,23 @@ chrome.storage.sync.get(['config'],function(data) {
   let botSwitch = eSwitch("On/Off",$("#botUI"),hackCfg.bots,function(state) {
     updateCfg("bots",state);
   });
+  let kdSwitch = eSwitch("KD Farm Mode",$("#botUI"),hackCfg.kdFarm,function(state) {
+    updateCfg("kdFarm",state);
+  });
+  kdSwitch[2].css({"margin-top":"6px"});
+  kdSwitch[2].append("<div class='info' style='margin-top:6px;font-size:7px;'>Bots will come to you and then stand still<br>(works without use of global locations)</div>");
+
   botSwitch[2].detach().insertAfter("#botTitle");
   botSwitch[0].css("transform","scale(.75) translate(-25%,25%)");
   botSwitch[2].find("label").css("margin-left","-5px");
   botSwitch[2].css("margin-left","2.5px");
 
-  $(`<span>Number of bots:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:15%;' id='botNum' maxlength='1' type='number'></input>`).insertAfter(botSwitch[2]);
+  kdSwitch[2].detach().insertAfter(botSwitch[2]);
+  kdSwitch[0].css("transform","scale(.75) translate(-25%,25%)");
+  kdSwitch[2].find("label").css("margin-left","-5px");
+  kdSwitch[2].css("margin-left","2.5px");
+
+  $(`<span>Number of bots:</span><input style='margin-left:10px;border:none;border-bottom:1px solid black;outline:none;display:inline;width:15%;' id='botNum' maxlength='1' type='number'></input>`).insertAfter(kdSwitch[2]);
 
   $("#botNum").val(hackCfg.botNo);
   $('#botNum').on('input', function(e){
