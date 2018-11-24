@@ -761,7 +761,7 @@ function gameInput(a) {
         locked = true;
         if (!hackCfg.autoFire) {
           target.f=data[0][1];
-          target.d=data[0][0];
+          // target.d=data[0][0];
           //console.log("targetting");
         }
         else if (!data[0][2].spawnProtection && Date.now()-getCurrentWeapon(myPlayer).lastShot >= getCurrentWeapon(myPlayer).fireRate && !data[0][3] && getCurrentWeapon(myPlayer).ammo !== 0 && !myPlayer.dead && !gameOver) {
@@ -4940,6 +4940,7 @@ class Bot {
     this.barrelCol = null;
     this.lastShot = null;
     this.inputNumber = 0;
+    this.distanceThreshold = 500;
     this.id = botIds++;
     this.connectToServer();
     let self = this;
@@ -5022,9 +5023,11 @@ class Bot {
       let botY = this.botPlayer.y;
       playerX > botX ? hdt=1 : hdt=-1;
       playerY > botY ? vdt=1 : vdt=-1;
+
+
       if (this.colWall != null) {
         if (botX == this.botPlayer.oldX && botY == this.botPlayer.oldY) {
-          console.log("stuck");
+          // console.log(this.botPlayer.name,"stuck");
           // if (this.colWall[1] != null) {this.colWall[1]*=-1;} else {hdt*=-1}
           // if (this.colWall[2] != null) {this.colWall[2]*=-1;} else {vdt*=-1}
         }
@@ -5042,18 +5045,18 @@ class Bot {
         //     playerX > botX ? hdt = 1/2: hdt = -1/2;
         //     break;
         // }
-        if (this.colWall[1] != null) {hdt = this.colWall[1];}
-        if (this.colWall[2] != null) {vdt = this.colWall[2];}
+        if (this.colWall[1] != null) {hdt = this.colWall[1]*2;}
+        if (this.colWall[2] != null) {vdt = this.colWall[2]*2;}
       }
       // console.log(inputNumber);
       let sendData = {
           hdt: hdt / 2,
           vdt: vdt / 2,
-          ts: true?currentTime:currentTime+(inputNumber*60),
+          ts: !hackCfg.botSpeed?currentTime:currentTime+(inputNumber*60),
           isn: this.inputNumber,
           s: 0
       }
-      sendData["delta"] = 300;
+      sendData["delta"] = 100;
       var a,b,e;
       a = sendData.hdt,
       b = sendData.vdt,
@@ -5072,24 +5075,34 @@ class Bot {
       let wallCollision = testWallCol2({x:x,y:y,w:this.botPlayer.width,h:this.botPlayer.height});
       let barrelCollision = testClutterCol({x:x,y:y,w:this.botPlayer.width,h:this.botPlayer.height});
       if (barrelCollision !== undefined) {
-        if (this.barrelCol === null || this.barrelCol[1].x != barrelCollision[1].x && this.barrelCol[1].y != barrelCollision[1].y) {
+        if (this.barrelCol === null || (this.barrelCol[1].x != barrelCollision[1].x && this.barrelCol[1].y != barrelCollision[1].y)) {
           this.barrelCol = barrelCollision;
+        }
+        if (this.colWall === undefined) {
+          console.log(sendData.hdt,sendData.vdt);
         }
         if (this.colWall !== null) {
         switch (this.colWall[0]) {
           case "left":
             sendData.hdt = -1/2;
+            console.log("moving left");
             break;
           case "right":
             sendData.hdt = 1/2;
+            console.log("moving right");
             break;
           case "top":
             sendData.vdt = -1/2;
+            console.log("moving up");
             break;
           case "bottom":
             sendData.vdt = 1/2;
+            console.log("moving down");
             break;
         }
+        }
+        else {
+          this.barrelCol = null;
         }
       }
       else {
@@ -5221,6 +5234,21 @@ class Bot {
         // console.log(wallCollision[1]);
 
       }
+      let dist = this.getDist(player);
+      if (!this.collisionTest(actualPlayer) && dist.hyp <= this.distanceThreshold) {
+        if (hackCfg.kdFarm) {
+
+        }
+        else {
+
+        }
+        let angle = radToDeg(Math.atan2(dist.y,dist.x))-90;
+        angle = (angle + 360) % 360;
+        sendData.vdt = 0;
+        sendData.hdt = 0;
+        // console.log("within threshold");
+      }
+
       this.socket.emit("4",sendData);
       this.inputNumber++;
     }
@@ -5258,7 +5286,7 @@ class Bot {
           }
           if (!playerInRoom) {
             console.log("wrong room");
-            removeBot(self.id);
+            setTimeout(function(){removeBot(self.id)},5000); //significantly cuts down on lag caused by bots constantly trying to rejoin a full game
             self.disconnect();
           }
         }
@@ -5317,6 +5345,17 @@ class Bot {
     }
     clearInterval(this.moveInterval);
   }
+
+  getDist(p) { //aimbot algorithm uses distance from barrel of gun to accurately determine if there is a clear shot instead
+    let myPlayer = this.botPlayer;
+    let myPlayerCentroid = {"x":myPlayer.x,"y":myPlayer.y-(myPlayer.height/2)};
+    let playerCentroid = {"x":p.x,"y":p.y-(p.height/2)};
+    let slope = [(myPlayerCentroid.y-playerCentroid.y),(myPlayerCentroid.x-playerCentroid.x)];
+    let x = slope[1];
+    let y = slope[0];
+    return {"x":x,"y":y,"hyp":Math.sqrt((slope[0]*slope[0])+(slope[1]*slope[1]))};
+  }
+
   collisionTest(actualPlayer) {
 
     let player;
