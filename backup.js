@@ -2200,12 +2200,12 @@ function hideUI(a) {
     a && (document.getElementById("chatbox").style.display = "none")
 }
 $(window).focus(function() {
-    // void 0 != socket && socket.emit("5", 1);
-    // tabbed = 0
+    void 0 != socket && socket.emit("5", 1);
+    tabbed = 0
 });
 $(window).blur(function() {
-    // void 0 != socket && socket.emit("5", 0);
-    // tabbed = 1
+    void 0 != socket && socket.emit("5", 0);
+    tabbed = 1
 });
 var sendData = null
   , fpsUpdateUICounter = 0;
@@ -2217,64 +2217,6 @@ let degToRad = function(deg) {
 let radToDeg = function(rad) {
   return rad * (180/Math.PI);
 }
-
-function calcLocation(data,delta) {
-  data.delta = delta;
-  let a;
-  let b;
-  let e;
-  let x;
-  let y;
-  a = data.hdt,
-  b = data.vdt,
-  e = mathSQRT(data.hdt * data.hdt + data.vdt * data.vdt),
-  0 != e && (a /= e,
-  b /= e);
-  x = player.x + (a * player.speed * data.delta);
-  y = player.y + (b * player.speed * data.delta);
-  (data.hdt != 0 || data.vdt != 0) && console.log(x,y);
-}
-
-function deltaToPos(x,y) {
-  let data = {
-      hdt: (x>player.x?1:-1) / 2,
-      vdt: (y>player.y?1:-1) / 2,
-      // ts: inputNumber%2 === 0?(currentTime+(hackCfg.speedHacks ? (inputNumber*60) : 0)):(currentTime+(inputNumber*60)-1000),
-      // ts:inputNumber%2 === 0 ? currentTime+1000:currentTime+500,
-      isn: inputNumber,
-      s: 0
-  };
-  let a;
-  let b;
-  let e;
-  let xDelta;
-  let yDelta;
-  a = data.hdt,
-  b = data.vdt,
-  e = 0.25,
-  0 != e && (a /= e,
-  b /= e);
-  xDelta = ((player.x - x) / (-a * -player.speed)) / -1;
-  yDelta = ((player.y - y) / (-b * -player.speed)) / -1;
-  // delta = ((player.x - x) / (-a * -player.speed)) / -1
-  return [[-2*xDelta,-(data.hdt*2)],[-2*yDelta,-(data.vdt*2)]];
-}
-
-$("#mapc").on("click",function(e) {
-  e.preventDefault();
-  let [x,y] = [e.offsetX,e.offsetY];
-  let scaledX = (x*gameWidth) / mapScale;
-  let scaledY = (y*gameHeight) / mapScale;
-  teleport(scaledX,scaledY);
-});
-
-function teleport(x,y) {
-  let xDelta;
-  let yDelta;
-  [xDelta,yDelta] = deltaToPos(x,y);
-  teleportDeltas = [["x",[0,0]],["x",xDelta],["x",[0,0]],["y",[0,0]],["y",yDelta],["y",[0,0]]];
-}
-let teleportDeltas = [];
 function updateGameLoop() {
     delta = currentTime - oldTime;
     fpsUpdateUICounter--;
@@ -2400,37 +2342,14 @@ function updateGameLoop() {
                   }
                   //getCurrentWeapon(player).ammo = getCurrentWeapon(player).maxAmmo; //ensures that player will never have to reload while also partially from getting banned by server
                 }
-                let tpDelta = null;
-                if (gameObjects[e].index == player.index) {
-                  if (teleportDeltas.length !== 0) {
-                    let d = teleportDeltas[0];
-                    let axis = d[0];
-                    let deltaTime = d[1];
-                    teleportDeltas.shift();
-                    if (axis === "x") {
-                      horizontalDT = deltaTime[1];
-                      verticalDT = 0;
-                    }
-                    else {
-                      verticalDT = deltaTime[1];
-                      horizontalDT = 0;
-                    }
-                    tpDelta = currentTime+deltaTime[0];
-                    // console.log(deltaTime);
-                  }
-                }
                 gameObjects[e].index != player.index || gameOver || (sendData = {
                     hdt: horizontalDT / 2,
                     vdt: verticalDT / 2,
-                    // ts: inputNumber%2 === 0?(currentTime+(hackCfg.speedHacks ? (inputNumber*60) : 0)):(currentTime+(inputNumber*60)-1000),
-                    // ts:tpDelta === null ? (inputNumber%2 === 0 ? currentTime+1000:currentTime) : tpDelta,
-                    ts:tpDelta === null ? currentTime+(hackCfg.speedHacks ? (inputNumber*60) : 0) : tpDelta,
+                    ts: currentTime+(hackCfg.speedHacks ? (inputNumber*60) : 0),
                     isn: inputNumber,
                     s: a
                 },
                 inputNumber++,
-                // calcLocation(sendData,currentTime-sendData.ts),
-                // console.log(currentTime-sendData.ts),
                 //player["gravityStrength"] = 0.005,
 
 
@@ -4954,75 +4873,6 @@ function getGlobalCoords(player) {
   }
 }
 
-
-function getTileIndex(x,y) {
-  let scale = mapTileScale;
-  let tileX = Math.floor(x/scale);
-  let tileY = Math.floor(y/scale);
-  let tile;
-  for (var i=0;i<gameMap.tiles.length;i++) {
-    let tmpTile = gameMap.tiles[i];
-    if ((tileX*scale) == tmpTile.x && (tileY*scale) == tmpTile.y) {
-      tile = tmpTile;
-    }
-  }
-  return [tileX+1,tileY+1,tile];
-}
-
-function getTiles() {
-  let tileGroups = {};
-  let tiles = [];
-  for (var i=0;i<gameMap.tiles.length;i++) {
-    var tile = gameMap.tiles[i];
-    if (tile.x < -mapTileScale || tile.y < -mapTileScale || tile.x > gameWidth || tile.y > gameHeight) {
-      continue;
-    }
-    if (tile.x in tileGroups) {
-      tileGroups[tile.x].push(tile);
-    }
-    else {
-      tileGroups[tile.x] = [tile];
-    }
-  }
-  Object.keys(tileGroups).sort((a,b)=>a-b).forEach(function(v,i) {
-    tiles.push(tileGroups[v]);
-  });
-  let returnTiles = [];
-  for (var x=0;x<tiles.length;x++) {
-    let row = [];
-    for (var y=0;y<tiles[x].length;y++) {
-      row.push(+!tiles[x][y].wall);
-    }
-    returnTiles.push(row);
-  }
-  /*for (var i=0;i<returnTiles.length;i++) {
-    console.log(returnTiles[i]);
-  }*/
-  let playerIndex = getTileIndex(player.x,player.y);
-  let con = $("<div></div>");
-  for (var x=0;x<returnTiles.length;x++) {
-    for (var y=0;y<returnTiles[x].length;y++) {
-      let elem = $("<div></div>");
-      elem.css({
-        "width":(500/returnTiles.length)+"px",
-        "height":((500/returnTiles[x].length))+"px",
-        "left":((500/returnTiles.length)*x)+"px",
-        "top":((500/returnTiles[x].length)*y)+"px",
-        "background-color":(x==playerIndex[0] && y==playerIndex[1]?"red":(returnTiles[x][y]?"green":"black")),
-        "position":"absolute"
-      });
-      con.append(elem);
-    }
-  }
-
-  con.css({"width":"500px","height":"500px","background-color":"black","position":"absolute"});
-  let conParent = $("<div></div>");
-  conParent.css({"width":"100%","height":"100%","position":"absolute","display":"flex","justify-content":"center","align-items":"center"});
-  conParent.append(con);
-  // $("body").append(conParent);
-  return returnTiles;
-}
-// setInterval(function(){getTiles();},2500);
 function getPlayer(info) {
   let name = info[0];
   let id = info[1];
@@ -5046,7 +4896,6 @@ function selectTarget(btn) {
   hackCfg.botTarget = [name,id];
   $("#targetText").text(name);
 }
-
 
 function makeStruct() {
   let t = [];
@@ -5091,9 +4940,7 @@ class Bot {
     this.barrelCol = null;
     this.lastShot = null;
     this.inputNumber = 0;
-    this.firstReceive = false;
     this.distanceThreshold = 500;
-    this.currentTile = [null,null];
     this.id = botIds++;
     this.connectToServer();
     let self = this;
@@ -5151,7 +4998,7 @@ class Bot {
       else {
         var player = getPlayer(hackCfg.botTarget);
         if ((getPlayer(hackCfg.botTarget) === undefined || getPlayer(hackCfg.botTarget) === null) && !this.wander) {
-          error = "Global location finder not working -- using fallback"
+          error = "Global location finder not working"
           $("#error").text(error);
           let dists = [];
           for (var i=0;i<gameObjects.length;i++) {
@@ -5165,100 +5012,255 @@ class Bot {
           dists.length !== 0 && (player = dists[0]);
           // return;
         }
-        else if (error === "Global location finder not working -- using fallback") {
+        else if (error === "Global location finder not working") {
           $("#error").text("");
         }
       }
       let playerX;
       let playerY;
-      playerX = player.x;
-      playerY = player.y;
+      if (this.wander) {
+        playerX = (Math.random() > .5 ? playerX = 10000 : playerX = -10000);
+        playerY = (Math.random() > .5 ? playerY = 10000 : playerY = -10000);
+      }
+      else {
+        playerX = player.x;
+        playerY = player.y;
+      }
       if (isNaN(playerX) || isNaN(playerY)) {
         return;
       }
       let botX = this.botPlayer.x;
       let botY = this.botPlayer.y;
-      let gameMapTiles = getTiles();
-      let graph = new Graph(gameMapTiles,{diagonal:false});
-      let startTile = getTileIndex(botX,botY);
-      let endTile = getTileIndex(playerX,playerY);
-      if (startTile !== this.currentTile[0] && endTile !==  this.currentTile[1]) {
-        this.currentTile = [startTile,endTile];
-        let startTileTile = startTile[2];
-        let endTileTile = endTile[2];
-        startTile = graph.grid[startTile[0]][startTile[1]];
-        endTile = graph.grid[endTile[0]][endTile[1]];
-        startTile.tile = startTileTile;
-        endTile.tile = endTileTile;
-        let path = astar.search(graph,startTile,endTile,{});
-        this.path = [startTile,endTile,path];
-      }
-      hdt = 0;
-      vdt = 0;
-      let path = this.path[2];
-      startTile = this.path[0];
-      endTile = this.path[1];
-      if (path.length !== 0 && path[0].x > startTile.x) {
-        hdt = 1;
-      }
-      else if (path.length !== 0 && path[0].x < startTile.x) {
-        hdt = -1;
-      }
-      else {
-        if (botX > startTile.tile.x+(startTile.tile.scale/2)) { //right side
-          // hdt = -1;
+      playerX > botX ? hdt=1 : hdt=-1;
+      playerY > botY ? vdt=1 : vdt=-1;
+
+
+      if (this.colWall != null) {
+        if (botX == this.botPlayer.oldX && botY == this.botPlayer.oldY) {
+          // console.log(this.botPlayer.name,"stuck");
+          // if (this.colWall[1] != null) {this.colWall[1]*=-1;} else {hdt*=-1}
+          // if (this.colWall[2] != null) {this.colWall[2]*=-1;} else {vdt*=-1}
         }
-        else {
-          // hdt = 1;
-        }
+        // switch (this.colWall[1]) {
+        //   case "left":
+        //     playerY > botY ? vdt = 1/2: vdt = -1/2;
+        //     break;
+        //   case "right":
+        //     playerY > botY ? vdt = 1/2: vdt = -1/2;
+        //     break;
+        //   case "top":
+        //     playerX > botX ? hdt = 1/2: hdt = -1/2;
+        //     break;
+        //   case "bottom":
+        //     playerX > botX ? hdt = 1/2: hdt = -1/2;
+        //     break;
+        // }
+        if (this.colWall[1] != null) {hdt = this.colWall[1]*2;}
+        if (this.colWall[2] != null) {vdt = this.colWall[2]*2;}
       }
-      if (path.length !== 0 && path[0].y > startTile.y) {
-        vdt = 1;
-      }
-      else if (path.length !== 0 && path[0].y < startTile.y) {
-        vdt = -1;
-      }
-      else {
-        if (botY > startTile.tile.y+(startTile.tile.scale/2)) { //bottom side
-          // vdt = -1;
-        }
-        else {
-          // vdt = 1;
-        }
-      }
+      // console.log(inputNumber);
       let sendData = {
           hdt: hdt / 2,
           vdt: vdt / 2,
-          ts: !hackCfg.botSpeed?currentTime:currentTime+(inputNumber*300),
+          ts: !hackCfg.botSpeed?currentTime:currentTime+(inputNumber*60),
           isn: this.inputNumber,
           s: 0
       }
-      this.socket.emit("4",sendData);
-      this.inputNumber++;
-    }
-  }
-  directions() {
-    for (var i=0;i<this.path[2].length;i++) {
-      let node = this.path[2][i];
-      let prevNode;
-      if (i==0) {
-        prevNode = this.path[0];
+      sendData["delta"] = 100;
+      var a,b,e;
+      a = sendData.hdt,
+      b = sendData.vdt,
+      e = mathSQRT(sendData.hdt * sendData.hdt + sendData.vdt * sendData.vdt),
+      0 != e && (a /= e,
+      b /= e);
+      var x = this.botPlayer.x + (a * this.botPlayer.speed * sendData.delta);
+      var y = this.botPlayer.y + (b * this.botPlayer.speed * sendData.delta);
+      // console.log(wallCol(this.botPlayer));
+      // if (this.botPlayer.x == this.botPlayer.oldX) {
+      //   sendData.hdt*=-1;
+      // }
+      // if (this.botPlayer.y == this.botPlayer.oldY) {
+      //   sendData.vdt*=-1;
+      // }
+      let wallCollision = testWallCol2({x:x,y:y,w:this.botPlayer.width,h:this.botPlayer.height});
+      let barrelCollision = testClutterCol({x:x,y:y,w:this.botPlayer.width,h:this.botPlayer.height});
+      if (barrelCollision !== undefined) {
+        if (this.barrelCol === null || (this.barrelCol[1].x != barrelCollision[1].x && this.barrelCol[1].y != barrelCollision[1].y)) {
+          this.barrelCol = barrelCollision;
+        }
+        if (this.colWall === undefined) {
+          console.log(sendData.hdt,sendData.vdt);
+        }
+        if (this.colWall !== null) {
+        switch (this.colWall[0]) {
+          case "left":
+            sendData.hdt = -1/2;
+            console.log("moving left");
+            break;
+          case "right":
+            sendData.hdt = 1/2;
+            console.log("moving right");
+            break;
+          case "top":
+            sendData.vdt = -1/2;
+            console.log("moving up");
+            break;
+          case "bottom":
+            sendData.vdt = 1/2;
+            console.log("moving down");
+            break;
+        }
+        }
+        else {
+          this.barrelCol = null;
+        }
       }
       else {
-        prevNode = this.path[2][i-1];
+        this.barrelCol = null;
       }
-      if (node.x > prevNode.x) {
-        console.log("move right");
+      // if (this.colWall != null && this.colWall[3].x != wallCollision[0].x && this.colWall[3].y != wallCollision[0].y) {
+      //   this.colWall = null;
+      // }
+
+      // if (this.colWall !== null) {
+      //   switch (this.colWall[0]) {
+      //     case "left":
+      //       if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //     case "right":
+      //       if (y < this.colWall[3].y || y > this.colWall[3].y+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //     case "top":
+      //       if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //     case "bottom":
+      //       if (x < this.colWall[3].x || x > this.colWall[3].x+this.colWall[3].scale) {
+      //         this.colWall = null;
+      //       }
+      //       break;
+      //   }
+      // }
+      if (!this.collisionTest(actualPlayer) && this.barrelCol === null) {
+        this.colWall = null;
+        // console.log("clear");
       }
-      if (node.x < prevNode.x) {
-        console.log("move left");
+      if (wallCollision !== undefined && this.colWall !== null && ((wallCollision.x !== this.colWall[3].x || wallCollision.y !== this.colWall[3].y) || wallCollision[1] !== this.colWall[0])) {
+        this.colWall = null;
+        // console.log("other");
       }
-      if (node.y > prevNode.y) {
-        console.log("move down");
+      if (wallCollision !== undefined && this.colWall == null) {
+        // switch (wallCollision[1]) {
+        //   case "left":
+        //     playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+        //     sendData.hdt = -1/2;
+        //     this.colWall = [wallCollision[1],0,sendData.vdt*2,wallCollision[0]];
+        //     break;
+        //   case "right":
+        //     playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+        //     sendData.hdt = 1/2;
+        //     this.colWall = [wallCollision[1],0,sendData.vdt*2,wallCollision[0]];
+        //     break;
+        //   case "top":
+        //     playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+        //     sendData.vdt = -1/2;
+        //     this.colWall = [wallCollision[1],sendData.hdt*2,0,wallCollision[0]];
+        //     break;
+        //   case "bottom":
+        //     playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+        //     sendData.vdt = 1/2;
+        //     this.colWall = [wallCollision[1],sendData.hdt*2,0,wallCollision[0]];
+        //     break;
+        // }
+        let t = wallCollision[0];
+        let direction = null;
+        switch (wallCollision[1]) {
+          case "left":
+            //playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+            sendData.hdt = -1/2;
+            if (playerY > botY && !t.bottom) {
+              direction = 1/2;
+            }
+            else if (!t.top) {
+              direction = -1/2;
+            }
+            else {
+              playerY > botY ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.vdt = direction;
+            this.colWall = [wallCollision[1],0,direction,wallCollision[0]];
+            break;
+          case "right":
+            //playerY > botY ? sendData.vdt = 1/2: sendData.vdt = -1/2;
+            sendData.hdt = 1/2;
+            if (playerY > botY && !t.bottom) {
+              direction = 1/2;
+            }
+            else if (!t.top) {
+              direction = -1/2;
+            }
+            else {
+              playerY > botY ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.vdt = direction;
+            this.colWall = [wallCollision[1],0,direction,wallCollision[0]];
+            break;
+          case "top":
+            //playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+            sendData.vdt = -1/2;
+            if (playerX > botX && !t.right) {
+              direction = 1/2;
+            }
+            else if (!t.left) {
+              direction = -1/2;
+            }
+            else {
+              playerX > botX ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.hdt = direction;
+            this.colWall = [wallCollision[1],direction,0,wallCollision[0]];
+            break;
+          case "bottom":
+            //playerX > botX ? sendData.hdt = 1/2: sendData.hdt = -1/2;
+            sendData.vdt = 1/2;
+            if (playerX > botX && !t.right) {
+              direction = 1/2;
+            }
+            else if (!t.left) {
+              direction = -1/2;
+            }
+            else {
+              playerX > botX ? direction = 1/2 : direction = -1/2;
+            }
+            sendData.hdt = direction;
+            this.colWall = [wallCollision[1],direction,0,wallCollision[0]];
+            break;
+        }
+        // console.log(wallCollision[1]);
+
       }
-      if (node.y < prevNode.y) {
-        console.log("move up");
+      let dist = this.getDist(player);
+      if (!this.collisionTest(actualPlayer) && dist.hyp <= this.distanceThreshold) {
+        if (hackCfg.kdFarm) {
+
+        }
+        else {
+
+        }
+        let angle = radToDeg(Math.atan2(dist.y,dist.x))-90;
+        angle = (angle + 360) % 360;
+        sendData.vdt = 0;
+        sendData.hdt = 0;
+        // console.log("within threshold");
       }
+
+      this.socket.emit("4",sendData);
+      this.inputNumber++;
     }
   }
 
@@ -5279,12 +5281,6 @@ class Bot {
         b.name = self.playerName;
         b.classIndex = 0;
         this.emit("gotit", b, d, Date.now(), !1);
-        if (!self.firstReceive) {
-          this.emit("respawn");
-        }
-        else {
-          self.firstReceive = false;
-        }
     });
     this.socket.on("gameSetup", function(a, d, e) {
         a = JSON.parse(a);
@@ -5411,407 +5407,3 @@ class Bot {
     return testCol([hyp,radians,myPlayer,playerCentroid]);
   }
 }
-// javascript-astar 0.4.1
-// http://github.com/bgrins/javascript-astar
-// Freely distributable under the MIT License.
-// Implements the astar search algorithm in javascript using a Binary Heap.
-// Includes Binary Heap (with modifications) from Marijn Haverbeke.
-// http://eloquentjavascript.net/appendix2.html
-(function(definition) {
-  /* global module, define */
-  if (typeof module === 'object' && typeof module.exports === 'object') {
-    module.exports = definition();
-  } else if (typeof define === 'function' && define.amd) {
-    define([], definition);
-  } else {
-    var exports = definition();
-    window.astar = exports.astar;
-    window.Graph = exports.Graph;
-  }
-})(function() {
-
-function pathTo(node) {
-  var curr = node;
-  var path = [];
-  while (curr.parent) {
-    path.unshift(curr);
-    curr = curr.parent;
-  }
-  return path;
-}
-
-function getHeap() {
-  return new BinaryHeap(function(node) {
-    return node.f;
-  });
-}
-
-var astar = {
-  /**
-  * Perform an A* Search on a graph given a start and end node.
-  * @param {Graph} graph
-  * @param {GridNode} start
-  * @param {GridNode} end
-  * @param {Object} [options]
-  * @param {bool} [options.closest] Specifies whether to return the
-             path to the closest node if the target is unreachable.
-  * @param {Function} [options.heuristic] Heuristic function (see
-  *          astar.heuristics).
-  */
-  search: function(graph, start, end, options) {
-    graph.cleanDirty();
-    options = options || {};
-    var heuristic = options.heuristic || astar.heuristics.manhattan;
-    var closest = options.closest || false;
-
-    var openHeap = getHeap();
-    var closestNode = start; // set the start node to be the closest if required
-
-    start.h = heuristic(start, end);
-    graph.markDirty(start);
-
-    openHeap.push(start);
-
-    while (openHeap.size() > 0) {
-
-      // Grab the lowest f(x) to process next.  Heap keeps this sorted for us.
-      var currentNode = openHeap.pop();
-
-      // End case -- result has been found, return the traced path.
-      if (currentNode === end) {
-        return pathTo(currentNode);
-      }
-
-      // Normal case -- move currentNode from open to closed, process each of its neighbors.
-      currentNode.closed = true;
-
-      // Find all neighbors for the current node.
-      var neighbors = graph.neighbors(currentNode);
-
-      for (var i = 0, il = neighbors.length; i < il; ++i) {
-        var neighbor = neighbors[i];
-
-        if (neighbor.closed || neighbor.isWall()) {
-          // Not a valid node to process, skip to next neighbor.
-          continue;
-        }
-
-        // The g score is the shortest distance from start to current node.
-        // We need to check if the path we have arrived at this neighbor is the shortest one we have seen yet.
-        var gScore = currentNode.g + neighbor.getCost(currentNode);
-        var beenVisited = neighbor.visited;
-
-        if (!beenVisited || gScore < neighbor.g) {
-
-          // Found an optimal (so far) path to this node.  Take score for node to see how good it is.
-          neighbor.visited = true;
-          neighbor.parent = currentNode;
-          neighbor.h = neighbor.h || heuristic(neighbor, end);
-          neighbor.g = gScore;
-          neighbor.f = neighbor.g + neighbor.h;
-          graph.markDirty(neighbor);
-          if (closest) {
-            // If the neighbour is closer than the current closestNode or if it's equally close but has
-            // a cheaper path than the current closest node then it becomes the closest node
-            if (neighbor.h < closestNode.h || (neighbor.h === closestNode.h && neighbor.g < closestNode.g)) {
-              closestNode = neighbor;
-            }
-          }
-
-          if (!beenVisited) {
-            // Pushing to heap will put it in proper place based on the 'f' value.
-            openHeap.push(neighbor);
-          } else {
-            // Already seen the node, but since it has been rescored we need to reorder it in the heap
-            openHeap.rescoreElement(neighbor);
-          }
-        }
-      }
-    }
-
-    if (closest) {
-      return pathTo(closestNode);
-    }
-
-    // No result was found - empty array signifies failure to find path.
-    return [];
-  },
-  // See list of heuristics: http://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html
-  heuristics: {
-    manhattan: function(pos0, pos1) {
-      var d1 = Math.abs(pos1.x - pos0.x);
-      var d2 = Math.abs(pos1.y - pos0.y);
-      return d1 + d2;
-    },
-    diagonal: function(pos0, pos1) {
-      var D = 1;
-      var D2 = Math.sqrt(2);
-      var d1 = Math.abs(pos1.x - pos0.x);
-      var d2 = Math.abs(pos1.y - pos0.y);
-      return (D * (d1 + d2)) + ((D2 - (2 * D)) * Math.min(d1, d2));
-    }
-  },
-  cleanNode: function(node) {
-    node.f = 0;
-    node.g = 0;
-    node.h = 0;
-    node.visited = false;
-    node.closed = false;
-    node.parent = null;
-  }
-};
-
-/**
- * A graph memory structure
- * @param {Array} gridIn 2D array of input weights
- * @param {Object} [options]
- * @param {bool} [options.diagonal] Specifies whether diagonal moves are allowed
- */
-function Graph(gridIn, options) {
-  options = options || {};
-  this.nodes = [];
-  this.diagonal = !!options.diagonal;
-  this.grid = [];
-  for (var x = 0; x < gridIn.length; x++) {
-    this.grid[x] = [];
-
-    for (var y = 0, row = gridIn[x]; y < row.length; y++) {
-      var node = new GridNode(x, y, row[y]);
-      this.grid[x][y] = node;
-      this.nodes.push(node);
-    }
-  }
-  this.init();
-}
-
-Graph.prototype.init = function() {
-  this.dirtyNodes = [];
-  for (var i = 0; i < this.nodes.length; i++) {
-    astar.cleanNode(this.nodes[i]);
-  }
-};
-
-Graph.prototype.cleanDirty = function() {
-  for (var i = 0; i < this.dirtyNodes.length; i++) {
-    astar.cleanNode(this.dirtyNodes[i]);
-  }
-  this.dirtyNodes = [];
-};
-
-Graph.prototype.markDirty = function(node) {
-  this.dirtyNodes.push(node);
-};
-
-Graph.prototype.neighbors = function(node) {
-  var ret = [];
-  var x = node.x;
-  var y = node.y;
-  var grid = this.grid;
-
-  // West
-  if (grid[x - 1] && grid[x - 1][y]) {
-    ret.push(grid[x - 1][y]);
-  }
-
-  // East
-  if (grid[x + 1] && grid[x + 1][y]) {
-    ret.push(grid[x + 1][y]);
-  }
-
-  // South
-  if (grid[x] && grid[x][y - 1]) {
-    ret.push(grid[x][y - 1]);
-  }
-
-  // North
-  if (grid[x] && grid[x][y + 1]) {
-    ret.push(grid[x][y + 1]);
-  }
-
-  if (this.diagonal) {
-    // Southwest
-    if (grid[x - 1] && grid[x - 1][y - 1]) {
-      ret.push(grid[x - 1][y - 1]);
-    }
-
-    // Southeast
-    if (grid[x + 1] && grid[x + 1][y - 1]) {
-      ret.push(grid[x + 1][y - 1]);
-    }
-
-    // Northwest
-    if (grid[x - 1] && grid[x - 1][y + 1]) {
-      ret.push(grid[x - 1][y + 1]);
-    }
-
-    // Northeast
-    if (grid[x + 1] && grid[x + 1][y + 1]) {
-      ret.push(grid[x + 1][y + 1]);
-    }
-  }
-
-  return ret;
-};
-
-Graph.prototype.toString = function() {
-  var graphString = [];
-  var nodes = this.grid;
-  for (var x = 0; x < nodes.length; x++) {
-    var rowDebug = [];
-    var row = nodes[x];
-    for (var y = 0; y < row.length; y++) {
-      rowDebug.push(row[y].weight);
-    }
-    graphString.push(rowDebug.join(" "));
-  }
-  return graphString.join("\n");
-};
-
-function GridNode(x, y, weight) {
-  this.x = x;
-  this.y = y;
-  this.weight = weight;
-}
-
-GridNode.prototype.toString = function() {
-  return "[" + this.x + " " + this.y + "]";
-};
-
-GridNode.prototype.getCost = function(fromNeighbor) {
-  // Take diagonal weight into consideration.
-  if (fromNeighbor && fromNeighbor.x != this.x && fromNeighbor.y != this.y) {
-    return this.weight * 1.41421;
-  }
-  return this.weight;
-};
-
-GridNode.prototype.isWall = function() {
-  return this.weight === 0;
-};
-
-function BinaryHeap(scoreFunction) {
-  this.content = [];
-  this.scoreFunction = scoreFunction;
-}
-
-BinaryHeap.prototype = {
-  push: function(element) {
-    // Add the new element to the end of the array.
-    this.content.push(element);
-
-    // Allow it to sink down.
-    this.sinkDown(this.content.length - 1);
-  },
-  pop: function() {
-    // Store the first element so we can return it later.
-    var result = this.content[0];
-    // Get the element at the end of the array.
-    var end = this.content.pop();
-    // If there are any elements left, put the end element at the
-    // start, and let it bubble up.
-    if (this.content.length > 0) {
-      this.content[0] = end;
-      this.bubbleUp(0);
-    }
-    return result;
-  },
-  remove: function(node) {
-    var i = this.content.indexOf(node);
-
-    // When it is found, the process seen in 'pop' is repeated
-    // to fill up the hole.
-    var end = this.content.pop();
-
-    if (i !== this.content.length - 1) {
-      this.content[i] = end;
-
-      if (this.scoreFunction(end) < this.scoreFunction(node)) {
-        this.sinkDown(i);
-      } else {
-        this.bubbleUp(i);
-      }
-    }
-  },
-  size: function() {
-    return this.content.length;
-  },
-  rescoreElement: function(node) {
-    this.sinkDown(this.content.indexOf(node));
-  },
-  sinkDown: function(n) {
-    // Fetch the element that has to be sunk.
-    var element = this.content[n];
-
-    // When at 0, an element can not sink any further.
-    while (n > 0) {
-
-      // Compute the parent element's index, and fetch it.
-      var parentN = ((n + 1) >> 1) - 1;
-      var parent = this.content[parentN];
-      // Swap the elements if the parent is greater.
-      if (this.scoreFunction(element) < this.scoreFunction(parent)) {
-        this.content[parentN] = element;
-        this.content[n] = parent;
-        // Update 'n' to continue at the new position.
-        n = parentN;
-      }
-      // Found a parent that is less, no need to sink any further.
-      else {
-        break;
-      }
-    }
-  },
-  bubbleUp: function(n) {
-    // Look up the target element and its score.
-    var length = this.content.length;
-    var element = this.content[n];
-    var elemScore = this.scoreFunction(element);
-
-    while (true) {
-      // Compute the indices of the child elements.
-      var child2N = (n + 1) << 1;
-      var child1N = child2N - 1;
-      // This is used to store the new position of the element, if any.
-      var swap = null;
-      var child1Score;
-      // If the first child exists (is inside the array)...
-      if (child1N < length) {
-        // Look it up and compute its score.
-        var child1 = this.content[child1N];
-        child1Score = this.scoreFunction(child1);
-
-        // If the score is less than our element's, we need to swap.
-        if (child1Score < elemScore) {
-          swap = child1N;
-        }
-      }
-
-      // Do the same checks for the other child.
-      if (child2N < length) {
-        var child2 = this.content[child2N];
-        var child2Score = this.scoreFunction(child2);
-        if (child2Score < (swap === null ? elemScore : child1Score)) {
-          swap = child2N;
-        }
-      }
-
-      // If the element needs to be moved, swap it, and continue.
-      if (swap !== null) {
-        this.content[n] = this.content[swap];
-        this.content[swap] = element;
-        n = swap;
-      }
-      // Otherwise, we are done.
-      else {
-        break;
-      }
-    }
-  }
-};
-
-return {
-  astar: astar,
-  Graph: Graph
-};
-
-});
